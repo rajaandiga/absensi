@@ -17,6 +17,8 @@ class HasilValidasiLokasi {
   final HasilValidasi hasil;
   final MetodeValidasiLokasi? metode;
   final double? jarak; // meter
+  final double? latitude;  // FIX: tambah field latitude
+  final double? longitude; // FIX: tambah field longitude
   final String? ssid;
   final String pesan;
 
@@ -25,6 +27,8 @@ class HasilValidasiLokasi {
     required this.hasil,
     this.metode,
     this.jarak,
+    this.latitude,
+    this.longitude,
     this.ssid,
     required this.pesan,
   });
@@ -42,7 +46,6 @@ class LokasiService {
     if (hasilGps.valid) return hasilGps;
 
     // GPS gagal karena di luar area → langsung tolak, jangan fallback WiFi
-    // GPS gagal karena teknis (izin / sinyal) → coba WiFi
     if (hasilGps.hasil == HasilValidasi.gagalDiLuarArea) {
       return hasilGps;
     }
@@ -99,8 +102,7 @@ class LokasiService {
         AppConstants.kantorLongitude,
       );
 
-      // Akurasi HP sendiri juga diperhitungkan
-      // Jika akurasi GPS > 100m, sinyal terlalu lemah — tidak bisa dipercaya
+      // Jika akurasi GPS > 100m, sinyal terlalu lemah
       if (posisi.accuracy > 100) {
         return HasilValidasiLokasi(
           valid: false,
@@ -116,6 +118,8 @@ class LokasiService {
           hasil: HasilValidasi.berhasil,
           metode: MetodeValidasiLokasi.gps,
           jarak: jarak,
+          latitude: posisi.latitude,   // FIX: simpan koordinat
+          longitude: posisi.longitude, // FIX: simpan koordinat
           pesan: 'Lokasi terverifikasi via GPS (${jarak.toStringAsFixed(0)}m dari kantor)',
         );
       } else {
@@ -127,8 +131,7 @@ class LokasiService {
         );
       }
     } catch (e) {
-      // Timeout atau error GPS → coba WiFi
-      return HasilValidasiLokasi(
+      return const HasilValidasiLokasi(
         valid: false,
         hasil: HasilValidasi.gagalIzinLokasi,
         pesan: 'GPS timeout, mencoba validasi WiFi...',

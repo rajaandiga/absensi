@@ -11,7 +11,8 @@ class AppTheme {
         onPrimary: Colors.white,
         secondary: AppColors.primaryDark,
         surface: AppColors.surface,
-        background: AppColors.background,
+        // FIX: 'background' deprecated di Material 3 → gunakan surfaceContainerLowest
+        surfaceContainerLowest: AppColors.background,
         error: AppColors.error,
       ),
       scaffoldBackgroundColor: AppColors.background,
@@ -81,6 +82,22 @@ class AppTheme {
         ),
         labelStyle: const TextStyle(color: AppColors.textSecondary),
         hintStyle: const TextStyle(color: AppColors.textHint),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: AppColors.background,
+        selectedColor: AppColors.primarySurface,
+        labelStyle: const TextStyle(fontSize: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: AppColors.border, width: 0.5),
+        ),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: AppColors.border,
+        thickness: 0.5,
+      ),
+      listTileTheme: const ListTileThemeData(
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       ),
     );
   }

@@ -4,7 +4,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../core/constants/app_constants.dart';
 
 /// Service HTTP — semua panggilan ke backend BPS melewati sini.
-/// Saat backend BPS siap, cukup ganti baseUrl di AppConstants.
 class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
@@ -36,13 +35,12 @@ class ApiService {
         handler.next(options);
       },
       onError: (error, handler) {
-        // Token expired → bisa tambahkan logout otomatis di sini
         handler.next(error);
       },
     ));
   }
 
-  // ── Auth ─────────────────────────────────────────────────────────────────
+  // ── Auth ───────────────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> login({
     required String nip,
@@ -62,12 +60,12 @@ class ApiService {
     await _storage.delete(key: AppConstants.keyToken);
   }
 
-  // ── Absensi ───────────────────────────────────────────────────────────────
+  // ── Absensi ────────────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> submitAbsen({
     required String pegawaiId,
-    required String jenis, // 'masuk' | 'pulang'
-    required String metode, // 'gps' | 'wifi'
+    required String jenis,
+    required String metode,
     double? latitude,
     double? longitude,
     String? ssidWifi,
@@ -104,7 +102,35 @@ class ApiService {
     return response.data as List<dynamic>;
   }
 
-  // ── Admin ─────────────────────────────────────────────────────────────────
+  // ── Izin / Sakit ───────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> ajukanIzin({
+    required String pegawaiId,
+    required String jenis, // 'izin' | 'sakit'
+    required String tanggalMulai,
+    required String tanggalSelesai,
+    required String keterangan,
+    String? lampiranUrl,
+  }) async {
+    final response = await _dio.post('/izin', data: {
+      'pegawai_id': pegawaiId,
+      'jenis': jenis,
+      'tanggal_mulai': tanggalMulai,
+      'tanggal_selesai': tanggalSelesai,
+      'keterangan': keterangan,
+      'lampiran_url': lampiranUrl,
+    });
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<List<dynamic>> getRiwayatIzin(String pegawaiId) async {
+    final response = await _dio.get('/izin', queryParameters: {
+      'pegawai_id': pegawaiId,
+    });
+    return response.data as List<dynamic>;
+  }
+
+  // ── Admin ──────────────────────────────────────────────────────────────────
 
   Future<List<dynamic>> getSemuaAbsensiHariIni() async {
     final response = await _dio.get('/admin/absensi/hari-ini');
@@ -122,7 +148,40 @@ class ApiService {
     return response.data as List<dynamic>;
   }
 
-  // ── Token Management ──────────────────────────────────────────────────────
+  Future<List<dynamic>> getSemuaPegawai() async {
+    final response = await _dio.get('/admin/pegawai');
+    return response.data as List<dynamic>;
+  }
+
+  Future<Map<String, dynamic>> tambahPegawai(
+      Map<String, dynamic> data) async {
+    final response = await _dio.post('/admin/pegawai', data: data);
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updatePegawai(
+      String id, Map<String, dynamic> data) async {
+    final response = await _dio.put('/admin/pegawai/$id', data: data);
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<void> hapusPegawai(String id) async {
+    await _dio.delete('/admin/pegawai/$id');
+  }
+
+  Future<List<dynamic>> getIzinPending() async {
+    final response = await _dio.get('/admin/izin/pending');
+    return response.data as List<dynamic>;
+  }
+
+  Future<Map<String, dynamic>> setujuiIzin(
+      String izinId, String status) async {
+    final response =
+    await _dio.put('/admin/izin/$izinId', data: {'status': status});
+    return response.data as Map<String, dynamic>;
+  }
+
+  // ── Token Management ───────────────────────────────────────────────────────
 
   Future<void> simpanToken(String token) async {
     await _storage.write(key: AppConstants.keyToken, value: token);

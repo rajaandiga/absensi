@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import '../data/models/pegawai_model.dart';
-import '../data/services/api_service.dart';
-import '../core/constants/app_constants.dart';
+import '../../data/models/pegawai_model.dart';
+import '../../data/services/api_service.dart';
+import '../../core/constants/app_constants.dart';
 
 enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
 
@@ -86,12 +86,15 @@ class AuthProvider extends ChangeNotifier {
   }
 
   String _parseError(dynamic error) {
-    if (error.toString().contains('SocketException') ||
-        error.toString().contains('Connection refused')) {
+    final msg = error.toString();
+    if (msg.contains('SocketException') || msg.contains('Connection refused')) {
       return 'Tidak dapat terhubung ke server. Periksa koneksi internet.';
     }
-    if (error.toString().contains('401')) {
+    if (msg.contains('401')) {
       return 'NIP atau password salah.';
+    }
+    if (msg.contains('DioException') || msg.contains('DioError')) {
+      return 'Koneksi gagal. Pastikan internet aktif dan coba lagi.';
     }
     return 'Terjadi kesalahan. Coba lagi.';
   }

@@ -4,9 +4,9 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'core/theme/app_theme.dart';
 import 'presentation/providers/auth_provider.dart';
 import 'presentation/providers/absen_provider.dart';
-import 'presentation/pages/auth/login_page.dart';
-import 'presentation/pages/absen/absen_page.dart';
-import 'presentation/pages/admin/admin_dashboard_page.dart';
+import 'pages/auth/login_page.dart';
+import 'pages/absen/absen_page.dart';
+import 'pages/admin/admin_dashboard_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

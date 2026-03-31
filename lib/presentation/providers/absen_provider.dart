@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
-import '../data/services/lokasi_service.dart';
-import '../data/services/api_service.dart';
-import '../data/models/absensi_model.dart';
-import '../data/models/pegawai_model.dart';
+import '../../data/services/lokasi_service.dart';
+import '../../data/services/api_service.dart';
+import '../../data/models/absensi_model.dart';
+import '../../data/models/pegawai_model.dart';
 
 enum AbsenStatus { idle, memvalidasi, berhasil, gagal }
 
@@ -18,6 +18,10 @@ class AbsenProvider extends ChangeNotifier {
   DateTime? _waktuMasuk;
   DateTime? _waktuPulang;
 
+  // Riwayat absen bulan ini
+  List<Absensi> _riwayat = [];
+  bool _loadingRiwayat = false;
+
   AbsenStatus get status => _status;
   String get pesan => _pesan;
   HasilValidasiLokasi? get hasilValidasi => _hasilValidasi;
@@ -25,6 +29,8 @@ class AbsenProvider extends ChangeNotifier {
   bool get sudahAbsenPulang => _sudahAbsenPulang;
   DateTime? get waktuMasuk => _waktuMasuk;
   DateTime? get waktuPulang => _waktuPulang;
+  List<Absensi> get riwayat => _riwayat;
+  bool get loadingRiwayat => _loadingRiwayat;
 
   /// Proses absen — validasi lokasi lalu kirim ke server
   Future<void> absen(Pegawai pegawai, {String? acaraId}) async {
@@ -56,7 +62,9 @@ class AbsenProvider extends ChangeNotifier {
         pegawaiId: pegawai.id,
         jenis: jenisAbsen,
         metode: metode,
-        latitude: _hasilValidasi!.jarak != null ? null : null,
+        // FIX: kirim latitude/longitude dari hasil validasi GPS
+        latitude: _hasilValidasi!.latitude,
+        longitude: _hasilValidasi!.longitude,
         ssidWifi: _hasilValidasi!.ssid,
         acaraId: acaraId,
       );
@@ -96,6 +104,32 @@ class AbsenProvider extends ChangeNotifier {
     } catch (_) {
       // Gagal load status — biarkan default (belum absen)
     }
+  }
+
+  /// Load riwayat absen bulan tertentu
+  Future<void> muatRiwayat({
+    required String pegawaiId,
+    required int bulan,
+    required int tahun,
+  }) async {
+    _loadingRiwayat = true;
+    notifyListeners();
+
+    try {
+      final data = await _api.getRiwayatAbsen(
+        pegawaiId: pegawaiId,
+        bulan: bulan,
+        tahun: tahun,
+      );
+      _riwayat = data
+          .map((e) => Absensi.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      _riwayat = [];
+    }
+
+    _loadingRiwayat = false;
+    notifyListeners();
   }
 
   void reset() {

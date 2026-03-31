@@ -1,10 +1,15 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../../providers/auth_provider.dart';
-import '../../providers/absen_provider.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../data/services/lokasi_service.dart';
+import '../../presentation/providers/auth_provider.dart';
+import '../../presentation/providers/absen_provider.dart';
+import '../../core/theme/app_colors.dart';
+import '../../data/services/lokasi_service.dart';
+import '../../data/models/absensi_model.dart';
+import 'riwayat_page.dart';
+import 'izin_page.dart';
+import 'profil_page.dart';
 
 class AbsenPage extends StatefulWidget {
   const AbsenPage({super.key});
@@ -14,6 +19,15 @@ class AbsenPage extends StatefulWidget {
 }
 
 class _AbsenPageState extends State<AbsenPage> {
+  int _navIndex = 0;
+
+  final List<Widget> _pages = const [
+    _BerandaAbsen(),
+    IzinPage(),
+    RiwayatPage(),
+    ProfilPage(),
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -27,6 +41,49 @@ class _AbsenPageState extends State<AbsenPage> {
 
   @override
   Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(
+        index: _navIndex,
+        children: _pages,
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _navIndex,
+        onDestinationSelected: (i) => setState(() => _navIndex = i),
+        backgroundColor: AppColors.surface,
+        indicatorColor: AppColors.primarySurface,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home_rounded),
+            label: 'Beranda',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.event_note_outlined),
+            selectedIcon: Icon(Icons.event_note),
+            label: 'Izin',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.history_outlined),
+            selectedIcon: Icon(Icons.history),
+            label: 'Riwayat',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Profil',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Halaman beranda (tab pertama) ─────────────────────────────────────────────
+class _BerandaAbsen extends StatelessWidget {
+  const _BerandaAbsen();
+
+  @override
+  Widget build(BuildContext context) {
     final pegawai = context.watch<AuthProvider>().pegawai;
     if (pegawai == null) return const SizedBox.shrink();
 
@@ -35,8 +92,8 @@ class _AbsenPageState extends State<AbsenPage> {
         title: const Text('Absensi'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => _konfirmasiLogout(context),
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () => _lihatNotifikasi(context),
           ),
         ],
       ),
@@ -46,19 +103,12 @@ class _AbsenPageState extends State<AbsenPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Kartu selamat datang
               _KartuPegawai(pegawai: pegawai),
               const SizedBox(height: 16),
-
-              // Status absen hari ini
               _KartuStatusHariIni(),
               const SizedBox(height: 16),
-
-              // Tombol absen
               _TombolAbsen(pegawai: pegawai),
               const SizedBox(height: 16),
-
-              // Info sistem validasi
               _InfoValidasi(),
             ],
           ),
@@ -67,39 +117,121 @@ class _AbsenPageState extends State<AbsenPage> {
     );
   }
 
-  void _konfirmasiLogout(BuildContext context) {
-    showDialog(
+  void _lihatNotifikasi(BuildContext context) {
+    showModalBottomSheet(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Keluar'),
-        content: const Text('Yakin ingin keluar dari aplikasi?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.read<AuthProvider>().logout();
-            },
-            child: const Text('Keluar'),
-          ),
-        ],
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Notifikasi',
+                style: TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 16),
+            const _NotifikasiItem(
+              icon: Icons.info_outline,
+              warna: AppColors.primary,
+              judul: 'Pengingat absen',
+              isi: 'Jangan lupa absen masuk sebelum jam 08:00 WIB.',
+            ),
+            const SizedBox(height: 8),
+            const _NotifikasiItem(
+              icon: Icons.check_circle_outline,
+              warna: AppColors.success,
+              judul: 'Sistem aktif',
+              isi: 'Validasi GPS & WiFi berjalan normal.',
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// ── Widget: Kartu info pegawai ────────────────────────────────────────────────
-class _KartuPegawai extends StatelessWidget {
+class _NotifikasiItem extends StatelessWidget {
+  final IconData icon;
+  final Color warna;
+  final String judul;
+  final String isi;
+
+  const _NotifikasiItem({
+    required this.icon,
+    required this.warna,
+    required this.judul,
+    required this.isi,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: warna.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 18, color: warna),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(judul,
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w500)),
+              Text(isi,
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.textSecondary)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Kartu pegawai dengan jam real-time ────────────────────────────────────────
+class _KartuPegawai extends StatefulWidget {
   final dynamic pegawai;
   const _KartuPegawai({required this.pegawai});
 
   @override
+  State<_KartuPegawai> createState() => _KartuPegawaiState();
+}
+
+class _KartuPegawaiState extends State<_KartuPegawai> {
+  late Timer _timer;
+  late DateTime _sekarang;
+
+  @override
+  void initState() {
+    super.initState();
+    _sekarang = DateTime.now();
+    _timer = Timer.periodic(
+        const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _sekarang = DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final jam = DateFormat('HH:mm').format(DateTime.now());
-    final tanggal = DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(DateTime.now());
+    final jam = DateFormat('HH:mm:ss').format(_sekarang);
+    final tanggal =
+    DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(_sekarang);
 
     return Card(
       child: Padding(
@@ -110,8 +242,8 @@ class _KartuPegawai extends StatelessWidget {
               radius: 28,
               backgroundColor: AppColors.primarySurface,
               child: Text(
-                pegawai.nama.isNotEmpty
-                    ? pegawai.nama[0].toUpperCase()
+                widget.pegawai.nama.isNotEmpty
+                    ? widget.pegawai.nama[0].toUpperCase()
                     : '?',
                 style: const TextStyle(
                   fontSize: 22,
@@ -125,43 +257,31 @@ class _KartuPegawai extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Selamat datang,',
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary),
-                  ),
-                  Text(
-                    pegawai.nama,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  Text(
-                    pegawai.labelTipe,
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary),
-                  ),
+                  const Text('Selamat datang,',
+                      style: TextStyle(
+                          fontSize: 12, color: AppColors.textSecondary)),
+                  Text(widget.pegawai.nama,
+                      style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.textPrimary)),
+                  Text(widget.pegawai.labelTipe,
+                      style: const TextStyle(
+                          fontSize: 12, color: AppColors.textSecondary)),
                 ],
               ),
             ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  jam,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.primary,
-                  ),
-                ),
-                Text(
-                  tanggal,
-                  style: const TextStyle(
-                      fontSize: 10, color: AppColors.textSecondary),
-                ),
+                Text(jam,
+                    style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.primary)),
+                Text(tanggal,
+                    style: const TextStyle(
+                        fontSize: 10, color: AppColors.textSecondary)),
               ],
             ),
           ],
@@ -171,7 +291,7 @@ class _KartuPegawai extends StatelessWidget {
   }
 }
 
-// ── Widget: Status absen hari ini ─────────────────────────────────────────────
+// ── Status hari ini ────────────────────────────────────────────────────────────
 class _KartuStatusHariIni extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -184,20 +304,18 @@ class _KartuStatusHariIni extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Status hari ini',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
+                const Text('Status hari ini',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary)),
                 const SizedBox(height: 12),
                 Row(
                   children: [
                     _StatusItem(
                       label: 'Masuk',
-                      nilai: absen.sudahAbsenMasuk && absen.waktuMasuk != null
+                      nilai: absen.sudahAbsenMasuk &&
+                          absen.waktuMasuk != null
                           ? fmt.format(absen.waktuMasuk!)
                           : '—',
                       warna: absen.sudahAbsenMasuk
@@ -207,7 +325,8 @@ class _KartuStatusHariIni extends StatelessWidget {
                     const SizedBox(width: 12),
                     _StatusItem(
                       label: 'Pulang',
-                      nilai: absen.sudahAbsenPulang && absen.waktuPulang != null
+                      nilai: absen.sudahAbsenPulang &&
+                          absen.waktuPulang != null
                           ? fmt.format(absen.waktuPulang!)
                           : '—',
                       warna: absen.sudahAbsenPulang
@@ -248,22 +367,18 @@ class _StatusItem extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Text(
-              label,
-              style: const TextStyle(
-                  fontSize: 12, color: AppColors.textSecondary),
-            ),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.textSecondary)),
             const SizedBox(height: 4),
-            Text(
-              nilai,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w500,
-                color: warna,
-              ),
-            ),
+            Text(nilai,
+                style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w500,
+                    color: warna)),
             const Text('WIB',
-                style: TextStyle(fontSize: 11, color: AppColors.textHint)),
+                style: TextStyle(
+                    fontSize: 11, color: AppColors.textHint)),
           ],
         ),
       ),
@@ -271,7 +386,7 @@ class _StatusItem extends StatelessWidget {
   }
 }
 
-// ── Widget: Tombol absen + hasil validasi ─────────────────────────────────────
+// ── Tombol Absen ───────────────────────────────────────────────────────────────
 class _TombolAbsen extends StatelessWidget {
   final dynamic pegawai;
   const _TombolAbsen({required this.pegawai});
@@ -283,7 +398,6 @@ class _TombolAbsen extends StatelessWidget {
         final sudahSelesai =
             absen.sudahAbsenMasuk && absen.sudahAbsenPulang;
 
-        // Hasil validasi — tampilkan setelah proses
         if (absen.status == AbsenStatus.berhasil ||
             absen.status == AbsenStatus.gagal) {
           return Column(
@@ -303,7 +417,6 @@ class _TombolAbsen extends StatelessWidget {
           );
         }
 
-        // Loading
         if (absen.status == AbsenStatus.memvalidasi) {
           return Card(
             child: Padding(
@@ -312,24 +425,19 @@ class _TombolAbsen extends StatelessWidget {
                 children: [
                   const CircularProgressIndicator(color: AppColors.primary),
                   const SizedBox(height: 16),
-                  Text(
-                    absen.pesan,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: AppColors.textSecondary),
-                  ),
+                  Text(absen.pesan,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: AppColors.textSecondary)),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Jangan tutup aplikasi',
-                    style: TextStyle(
-                        fontSize: 12, color: AppColors.textHint),
-                  ),
+                  const Text('Jangan tutup aplikasi',
+                      style: TextStyle(
+                          fontSize: 12, color: AppColors.textHint)),
                 ],
               ),
             ),
           );
         }
 
-        // Sudah absen semua
         if (sudahSelesai) {
           return Card(
             child: Padding(
@@ -339,37 +447,28 @@ class _TombolAbsen extends StatelessWidget {
                   const Icon(Icons.check_circle,
                       color: AppColors.success, size: 48),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Absensi hari ini selesai',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
+                  const Text('Absensi hari ini selesai',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.textPrimary)),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Sampai jumpa besok!',
-                    style: TextStyle(color: AppColors.textSecondary),
-                  ),
+                  const Text('Sampai jumpa besok!',
+                      style: TextStyle(color: AppColors.textSecondary)),
                 ],
               ),
             ),
           );
         }
 
-        // Tombol absen
-        final labelTombol = absen.sudahAbsenMasuk
-            ? 'Absen Pulang'
-            : 'Absen Masuk';
+        final labelTombol =
+        absen.sudahAbsenMasuk ? 'Absen Pulang' : 'Absen Masuk';
 
         return ElevatedButton.icon(
           onPressed: () => absen.absen(pegawai),
-          icon: Icon(
-            absen.sudahAbsenMasuk
-                ? Icons.logout_rounded
-                : Icons.login_rounded,
-          ),
+          icon: Icon(absen.sudahAbsenMasuk
+              ? Icons.logout_rounded
+              : Icons.login_rounded),
           label: Text(labelTombol),
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -383,7 +482,6 @@ class _TombolAbsen extends StatelessWidget {
   }
 }
 
-// ── Widget: Hasil validasi ────────────────────────────────────────────────────
 class _HasilValidasiCard extends StatelessWidget {
   final bool berhasil;
   final String pesan;
@@ -397,9 +495,11 @@ class _HasilValidasiCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = berhasil ? AppColors.successSurface : AppColors.errorSurface;
+    final bgColor =
+    berhasil ? AppColors.successSurface : AppColors.errorSurface;
     final iconColor = berhasil ? AppColors.success : AppColors.error;
-    final icon = berhasil ? Icons.check_circle_outline : Icons.error_outline;
+    final icon =
+    berhasil ? Icons.check_circle_outline : Icons.error_outline;
 
     return Container(
       width: double.infinity,
@@ -407,10 +507,7 @@ class _HasilValidasiCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: iconColor.withOpacity(0.3),
-          width: 0.5,
-        ),
+        border: Border.all(color: iconColor.withOpacity(0.3), width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -422,26 +519,20 @@ class _HasilValidasiCard extends StatelessWidget {
               Text(
                 berhasil ? 'Absen berhasil' : 'Absen gagal',
                 style: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  color: iconColor,
-                  fontSize: 15,
-                ),
+                    fontWeight: FontWeight.w500,
+                    color: iconColor,
+                    fontSize: 15),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            pesan,
-            style: TextStyle(
-              fontSize: 13,
-              color: iconColor,
-            ),
-          ),
-          // Info metode validasi yang dipakai
+          Text(pesan,
+              style: TextStyle(fontSize: 13, color: iconColor)),
           if (berhasil && hasilValidasi != null) ...[
             const SizedBox(height: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.5),
                 borderRadius: BorderRadius.circular(6),
@@ -449,9 +540,7 @@ class _HasilValidasiCard extends StatelessWidget {
               child: Text(
                 'Metode: ${hasilValidasi!.metode == MetodeValidasiLokasi.wifi ? "WiFi Kantor" : "GPS"}',
                 style: const TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textSecondary,
-                ),
+                    fontSize: 11, color: AppColors.textSecondary),
               ),
             ),
           ],
@@ -461,7 +550,7 @@ class _HasilValidasiCard extends StatelessWidget {
   }
 }
 
-// ── Widget: Info sistem validasi ──────────────────────────────────────────────
+// ── Info validasi ──────────────────────────────────────────────────────────────
 class _InfoValidasi extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -471,27 +560,26 @@ class _InfoValidasi extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Sistem validasi lokasi',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textSecondary,
-              ),
-            ),
+            const Text('Sistem validasi lokasi',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSecondary)),
             const SizedBox(height: 10),
             _InfoRow(
               icon: Icons.gps_fixed,
               warna: AppColors.success,
               judul: 'Lapis 1 — GPS',
-              deskripsi: 'Cek koordinat dalam radius 150m kantor BPS',
+              deskripsi:
+              'Cek koordinat dalam radius 150m kantor BPS',
             ),
             const SizedBox(height: 8),
             _InfoRow(
               icon: Icons.wifi,
               warna: AppColors.primary,
               judul: 'Lapis 2 — WiFi',
-              deskripsi: 'Fallback otomatis jika GPS lemah di dalam gedung',
+              deskripsi:
+              'Fallback otomatis jika GPS lemah di dalam gedung',
             ),
           ],
         ),
@@ -531,21 +619,14 @@ class _InfoRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                judul,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              Text(
-                deskripsi,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textSecondary,
-                ),
-              ),
+              Text(judul,
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textPrimary)),
+              Text(deskripsi,
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.textSecondary)),
             ],
           ),
         ),
