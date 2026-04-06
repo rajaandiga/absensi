@@ -6,7 +6,7 @@ enum TipePegawai { pns, mahasiswaMagang, karyawanSwasta, tamu }
 
 class Pegawai extends Equatable {
   final String id;
-  final String nip; // NIP untuk PNS, NIM untuk mahasiswa, dsb
+  final String nip;
   final String nama;
   final String email;
   final String jabatan;
@@ -30,10 +30,12 @@ class Pegawai extends Equatable {
       id: json['id'] as String,
       nip: json['nip'] as String,
       nama: json['nama'] as String,
-      email: json['email'] as String,
+      email: json['email'] as String? ?? '',
       jabatan: json['jabatan'] as String? ?? '',
       unitKerja: json['unit_kerja'] as String? ?? '',
-      role: json['role'] == 'admin' ? RolePengguna.admin : RolePengguna.pegawai,
+      role: json['role'] == 'admin' || json['is_admin'] == 1 || json['is_admin'] == true
+          ? RolePengguna.admin
+          : RolePengguna.pegawai,
       tipe: _parseTipe(json['tipe'] as String? ?? 'pns'),
     );
   }
@@ -46,7 +48,7 @@ class Pegawai extends Equatable {
     'jabatan': jabatan,
     'unit_kerja': unitKerja,
     'role': role.name,
-    'tipe': tipe.name,
+    'tipe': _tipeToString(tipe),
   };
 
   static TipePegawai _parseTipe(String tipe) {
@@ -55,6 +57,15 @@ class Pegawai extends Equatable {
       case 'karyawan_swasta': return TipePegawai.karyawanSwasta;
       case 'tamu': return TipePegawai.tamu;
       default: return TipePegawai.pns;
+    }
+  }
+
+  static String _tipeToString(TipePegawai tipe) {
+    switch (tipe) {
+      case TipePegawai.pns: return 'pns';
+      case TipePegawai.mahasiswaMagang: return 'mahasiswa_magang';
+      case TipePegawai.karyawanSwasta: return 'karyawan_swasta';
+      case TipePegawai.tamu: return 'tamu';
     }
   }
 

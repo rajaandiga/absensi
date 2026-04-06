@@ -18,7 +18,7 @@ class AppConstants {
   ];
 
   // URL backend BPS (isi saat server sudah siap)
-  static const String baseUrl = 'http://localhost:8000/api';
+  static const String baseUrl = 'http://10.15.8.165:8000/api';
 
   // Timeout
   static const connectTimeout = Duration(seconds: 15);

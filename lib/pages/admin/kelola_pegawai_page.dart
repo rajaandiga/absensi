@@ -72,8 +72,7 @@ class _KelolaPegawaiPageState extends State<KelolaPegawaiPage> {
               }),
               decoration: const InputDecoration(
                 hintText: 'Cari nama atau NIP...',
-                prefixIcon:
-                Icon(Icons.search, color: AppColors.textHint),
+                prefixIcon: Icon(Icons.search, color: AppColors.textHint),
                 isDense: true,
               ),
             ),
@@ -81,8 +80,7 @@ class _KelolaPegawaiPageState extends State<KelolaPegawaiPage> {
           if (_loading)
             const Expanded(
               child: Center(
-                  child:
-                  CircularProgressIndicator(color: AppColors.primary)),
+                  child: CircularProgressIndicator(color: AppColors.primary)),
             )
           else if (_filtered.isEmpty)
             const Expanded(
@@ -96,17 +94,14 @@ class _KelolaPegawaiPageState extends State<KelolaPegawaiPage> {
               child: RefreshIndicator(
                 onRefresh: _muat,
                 child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 4),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   itemCount: _filtered.length,
-                  separatorBuilder: (_, __) =>
-                  const SizedBox(height: 6),
+                  separatorBuilder: (_, __) => const SizedBox(height: 6),
                   itemBuilder: (_, i) => _PegawaiItem(
                     pegawai: _filtered[i],
-                    onEdit: () =>
-                        _dialogTambahEdit(context, _filtered[i]),
-                    onHapus: () =>
-                        _konfirmasiHapus(context, _filtered[i]),
+                    onEdit: () => _dialogTambahEdit(context, _filtered[i]),
+                    onHapus: () => _konfirmasiHapus(context, _filtered[i]),
                   ),
                 ),
               ),
@@ -117,16 +112,12 @@ class _KelolaPegawaiPageState extends State<KelolaPegawaiPage> {
   }
 
   void _dialogTambahEdit(BuildContext context, Pegawai? existing) {
-    final nipCtrl =
-    TextEditingController(text: existing?.nip ?? '');
-    final namaCtrl =
-    TextEditingController(text: existing?.nama ?? '');
-    final emailCtrl =
-    TextEditingController(text: existing?.email ?? '');
-    final jabatanCtrl =
-    TextEditingController(text: existing?.jabatan ?? '');
-    final unitCtrl =
-    TextEditingController(text: existing?.unitKerja ?? '');
+    final nipCtrl = TextEditingController(text: existing?.nip ?? '');
+    final namaCtrl = TextEditingController(text: existing?.nama ?? '');
+    final emailCtrl = TextEditingController(text: existing?.email ?? '');
+    final jabatanCtrl = TextEditingController(text: existing?.jabatan ?? '');
+    final unitCtrl = TextEditingController(text: existing?.unitKerja ?? '');
+    final passwordCtrl = TextEditingController();
     TipePegawai tipe = existing?.tipe ?? TipePegawai.pns;
     RolePengguna role = existing?.role ?? RolePengguna.pegawai;
     final formKey = GlobalKey<FormState>();
@@ -155,12 +146,9 @@ class _KelolaPegawaiPageState extends State<KelolaPegawaiPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      existing == null
-                          ? 'Tambah Pegawai'
-                          : 'Edit Pegawai',
+                      existing == null ? 'Tambah Pegawai' : 'Edit Pegawai',
                       style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500),
+                          fontSize: 16, fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -186,8 +174,7 @@ class _KelolaPegawaiPageState extends State<KelolaPegawaiPage> {
                     const SizedBox(height: 10),
                     TextFormField(
                       controller: jabatanCtrl,
-                      decoration:
-                      const InputDecoration(labelText: 'Jabatan'),
+                      decoration: const InputDecoration(labelText: 'Jabatan'),
                     ),
                     const SizedBox(height: 10),
                     TextFormField(
@@ -196,32 +183,48 @@ class _KelolaPegawaiPageState extends State<KelolaPegawaiPage> {
                       const InputDecoration(labelText: 'Unit Kerja'),
                     ),
                     const SizedBox(height: 10),
+                    // Password hanya wajib saat tambah, opsional saat edit
+                    TextFormField(
+                      controller: passwordCtrl,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        labelText: existing == null
+                            ? 'Password'
+                            : 'Password baru (kosongkan jika tidak diubah)',
+                      ),
+                      validator: (v) {
+                        if (existing == null && (v == null || v.isEmpty)) {
+                          return 'Wajib diisi';
+                        }
+                        if (v != null && v.isNotEmpty && v.length < 6) {
+                          return 'Minimal 6 karakter';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 10),
                     DropdownButtonFormField<TipePegawai>(
                       value: tipe,
-                      decoration:
-                      const InputDecoration(labelText: 'Tipe'),
+                      decoration: const InputDecoration(labelText: 'Tipe'),
                       items: TipePegawai.values
                           .map((t) => DropdownMenuItem(
-                          value: t,
-                          child: Text(_labelTipe(t))))
+                          value: t, child: Text(_labelTipe(t))))
                           .toList(),
-                      onChanged: (v) => setModal(
-                              () => tipe = v ?? TipePegawai.pns),
+                      onChanged: (v) =>
+                          setModal(() => tipe = v ?? TipePegawai.pns),
                     ),
                     const SizedBox(height: 10),
                     DropdownButtonFormField<RolePengguna>(
                       value: role,
-                      decoration:
-                      const InputDecoration(labelText: 'Role'),
+                      decoration: const InputDecoration(labelText: 'Role'),
                       items: RolePengguna.values
                           .map((r) => DropdownMenuItem(
                           value: r,
-                          child: Text(r == RolePengguna.admin
-                              ? 'Admin'
-                              : 'Pegawai')))
+                          child: Text(
+                              r == RolePengguna.admin ? 'Admin' : 'Pegawai')))
                           .toList(),
-                      onChanged: (v) => setModal(() =>
-                      role = v ?? RolePengguna.pegawai),
+                      onChanged: (v) =>
+                          setModal(() => role = v ?? RolePengguna.pegawai),
                     ),
                     const SizedBox(height: 20),
                     ElevatedButton(
@@ -237,9 +240,14 @@ class _KelolaPegawaiPageState extends State<KelolaPegawaiPage> {
                             'email': emailCtrl.text.trim(),
                             'jabatan': jabatanCtrl.text.trim(),
                             'unit_kerja': unitCtrl.text.trim(),
-                            'tipe': tipe.name,
+                            'tipe': _tipeToString(tipe),
                             'role': role.name,
+                            'is_admin': role == RolePengguna.admin,
                           };
+                          // Tambahkan password jika diisi
+                          if (passwordCtrl.text.isNotEmpty) {
+                            payload['password'] = passwordCtrl.text;
+                          }
                           if (existing == null) {
                             await _api.tambahPegawai(payload);
                           } else {
@@ -279,10 +287,27 @@ class _KelolaPegawaiPageState extends State<KelolaPegawaiPage> {
 
   String _labelTipe(TipePegawai t) {
     switch (t) {
-      case TipePegawai.pns: return 'PNS / ASN';
-      case TipePegawai.mahasiswaMagang: return 'Mahasiswa Magang';
-      case TipePegawai.karyawanSwasta: return 'Karyawan Swasta';
-      case TipePegawai.tamu: return 'Tamu';
+      case TipePegawai.pns:
+        return 'PNS / ASN';
+      case TipePegawai.mahasiswaMagang:
+        return 'Mahasiswa Magang';
+      case TipePegawai.karyawanSwasta:
+        return 'Karyawan Swasta';
+      case TipePegawai.tamu:
+        return 'Tamu';
+    }
+  }
+
+  String _tipeToString(TipePegawai t) {
+    switch (t) {
+      case TipePegawai.pns:
+        return 'pns';
+      case TipePegawai.mahasiswaMagang:
+        return 'mahasiswa_magang';
+      case TipePegawai.karyawanSwasta:
+        return 'karyawan_swasta';
+      case TipePegawai.tamu:
+        return 'tamu';
     }
   }
 
@@ -339,18 +364,18 @@ class _PegawaiItem extends StatelessWidget {
         leading: CircleAvatar(
           backgroundColor: AppColors.primarySurface,
           child: Text(
-            pegawai.nama.isNotEmpty
-                ? pegawai.nama[0].toUpperCase()
-                : '?',
+            pegawai.nama.isNotEmpty ? pegawai.nama[0].toUpperCase() : '?',
             style: const TextStyle(
                 color: AppColors.primary, fontWeight: FontWeight.w500),
           ),
         ),
         title: Text(pegawai.nama,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+            style:
+            const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
         subtitle: Text(
           '${pegawai.nip} · ${pegawai.labelTipe}',
-          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          style: const TextStyle(
+              fontSize: 12, color: AppColors.textSecondary),
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
@@ -358,8 +383,8 @@ class _PegawaiItem extends StatelessWidget {
             if (pegawai.isAdmin)
               Container(
                 margin: const EdgeInsets.only(right: 6),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 6, vertical: 2),
+                padding:
+                const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: AppColors.primarySurface,
                   borderRadius: BorderRadius.circular(10),

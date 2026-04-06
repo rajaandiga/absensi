@@ -16,9 +16,9 @@ class HasilValidasiLokasi {
   final bool valid;
   final HasilValidasi hasil;
   final MetodeValidasiLokasi? metode;
-  final double? jarak; // meter
-  final double? latitude;  // FIX: tambah field latitude
-  final double? longitude; // FIX: tambah field longitude
+  final double? jarak;
+  final double? latitude;
+  final double? longitude;
   final String? ssid;
   final String pesan;
 
