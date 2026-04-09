@@ -52,11 +52,11 @@ class _KelolaPegawaiPageState extends State<KelolaPegawaiPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Kelola Pegawai'),
+        title: const Text('Kelola Mahasiswa Magang'),
         actions: [
           IconButton(
             icon: const Icon(Icons.person_add_outlined),
-            tooltip: 'Tambah Pegawai',
+            tooltip: 'Tambah Mahasiswa Magang',
             onPressed: () => _dialogTambahEdit(context, null),
           ),
         ],
@@ -71,7 +71,7 @@ class _KelolaPegawaiPageState extends State<KelolaPegawaiPage> {
                 _applyFilter();
               }),
               decoration: const InputDecoration(
-                hintText: 'Cari nama atau NIP...',
+                hintText: 'Cari nama atau NIM...',
                 prefixIcon: Icon(Icons.search, color: AppColors.textHint),
                 isDense: true,
               ),
@@ -85,7 +85,7 @@ class _KelolaPegawaiPageState extends State<KelolaPegawaiPage> {
           else if (_filtered.isEmpty)
             const Expanded(
               child: Center(
-                child: Text('Tidak ada data pegawai',
+                child: Text('Belum ada mahasiswa magang',
                     style: TextStyle(color: AppColors.textHint)),
               ),
             )
@@ -111,32 +111,34 @@ class _KelolaPegawaiPageState extends State<KelolaPegawaiPage> {
     );
   }
 
-  void _dialogTambahEdit(BuildContext context, Pegawai? existing) {
+  void _dialogTambahEdit(BuildContext ctx, Pegawai? existing) {
     final nipCtrl = TextEditingController(text: existing?.nip ?? '');
     final namaCtrl = TextEditingController(text: existing?.nama ?? '');
     final emailCtrl = TextEditingController(text: existing?.email ?? '');
     final jabatanCtrl = TextEditingController(text: existing?.jabatan ?? '');
     final unitCtrl = TextEditingController(text: existing?.unitKerja ?? '');
     final passwordCtrl = TextEditingController();
-    TipePegawai tipe = existing?.tipe ?? TipePegawai.pns;
-    RolePengguna role = existing?.role ?? RolePengguna.pegawai;
+    // FIX: role disimpan sebagai ValueNotifier agar perubahan terdeteksi
+    // di dalam StatefulBuilder tanpa masalah state sync
+    final roleNotifier = ValueNotifier<RolePengguna>(
+        existing?.role ?? RolePengguna.pegawai);
     final formKey = GlobalKey<FormState>();
     bool saving = false;
 
     showModalBottomSheet(
-      context: context,
+      context: ctx,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (ctx) {
+      builder: (sheetCtx) {
         return StatefulBuilder(
-          builder: (ctx, setModal) => Padding(
+          builder: (sheetCtx, setModal) => Padding(
             padding: EdgeInsets.only(
               left: 20,
               right: 20,
               top: 20,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+              bottom: MediaQuery.of(sheetCtx).viewInsets.bottom + 20,
             ),
             child: Form(
               key: formKey,
@@ -145,45 +147,64 @@ class _KelolaPegawaiPageState extends State<KelolaPegawaiPage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Judul
                     Text(
-                      existing == null ? 'Tambah Pegawai' : 'Edit Pegawai',
+                      existing == null
+                          ? 'Tambah Mahasiswa Magang'
+                          : 'Edit Mahasiswa Magang',
                       style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w500),
+                          fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 16),
+
+                    // NIM
                     TextFormField(
                       controller: nipCtrl,
+                      keyboardType: TextInputType.number,
                       decoration:
-                      const InputDecoration(labelText: 'NIP / NIM'),
+                      const InputDecoration(labelText: 'NIM'),
                       validator: (v) =>
                       (v == null || v.isEmpty) ? 'Wajib diisi' : null,
                     ),
                     const SizedBox(height: 10),
+
+                    // Nama
                     TextFormField(
                       controller: namaCtrl,
-                      decoration: const InputDecoration(labelText: 'Nama'),
+                      textCapitalization: TextCapitalization.words,
+                      decoration:
+                      const InputDecoration(labelText: 'Nama Lengkap'),
                       validator: (v) =>
                       (v == null || v.isEmpty) ? 'Wajib diisi' : null,
                     ),
                     const SizedBox(height: 10),
+
+                    // Email (opsional)
                     TextFormField(
                       controller: emailCtrl,
                       keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(labelText: 'Email'),
+                      decoration:
+                      const InputDecoration(labelText: 'Email (opsional)'),
                     ),
                     const SizedBox(height: 10),
+
+                    // Jurusan / Jabatan
                     TextFormField(
                       controller: jabatanCtrl,
-                      decoration: const InputDecoration(labelText: 'Jabatan'),
+                      decoration:
+                      const InputDecoration(labelText: 'Jurusan / Program Studi'),
                     ),
                     const SizedBox(height: 10),
+
+                    // Unit Kerja / Divisi magang
                     TextFormField(
                       controller: unitCtrl,
                       decoration:
-                      const InputDecoration(labelText: 'Unit Kerja'),
+                      const InputDecoration(labelText: 'Unit / Divisi Magang'),
                     ),
                     const SizedBox(height: 10),
-                    // Password hanya wajib saat tambah, opsional saat edit
+
+                    // Password
                     TextFormField(
                       controller: passwordCtrl,
                       obscureText: true,
@@ -203,77 +224,89 @@ class _KelolaPegawaiPageState extends State<KelolaPegawaiPage> {
                       },
                     ),
                     const SizedBox(height: 10),
-                    DropdownButtonFormField<TipePegawai>(
-                      value: tipe,
-                      decoration: const InputDecoration(labelText: 'Tipe'),
-                      items: TipePegawai.values
-                          .map((t) => DropdownMenuItem(
-                          value: t, child: Text(_labelTipe(t))))
-                          .toList(),
-                      onChanged: (v) =>
-                          setModal(() => tipe = v ?? TipePegawai.pns),
+
+                    // FIX: Dropdown Role saja (tipe dihapus, selalu mahasiswa_magang)
+                    // Gunakan ValueNotifier supaya perubahan terpantau dengan benar
+                    ValueListenableBuilder<RolePengguna>(
+                      valueListenable: roleNotifier,
+                      builder: (_, roleVal, __) =>
+                          DropdownButtonFormField<RolePengguna>(
+                            value: roleVal,
+                            decoration:
+                            const InputDecoration(labelText: 'Akses'),
+                            items: const [
+                              DropdownMenuItem(
+                                value: RolePengguna.pegawai,
+                                child: Text('Mahasiswa Magang'),
+                              ),
+                              DropdownMenuItem(
+                                value: RolePengguna.admin,
+                                child: Text('Admin'),
+                              ),
+                            ],
+                            onChanged: (v) {
+                              if (v != null) roleNotifier.value = v;
+                            },
+                          ),
                     ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<RolePengguna>(
-                      value: role,
-                      decoration: const InputDecoration(labelText: 'Role'),
-                      items: RolePengguna.values
-                          .map((r) => DropdownMenuItem(
-                          value: r,
-                          child: Text(
-                              r == RolePengguna.admin ? 'Admin' : 'Pegawai')))
-                          .toList(),
-                      onChanged: (v) =>
-                          setModal(() => role = v ?? RolePengguna.pegawai),
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: saving
-                          ? null
-                          : () async {
-                        if (!formKey.currentState!.validate()) return;
-                        setModal(() => saving = true);
-                        try {
-                          final payload = {
-                            'nip': nipCtrl.text.trim(),
-                            'nama': namaCtrl.text.trim(),
-                            'email': emailCtrl.text.trim(),
-                            'jabatan': jabatanCtrl.text.trim(),
-                            'unit_kerja': unitCtrl.text.trim(),
-                            'tipe': _tipeToString(tipe),
-                            'role': role.name,
-                            'is_admin': role == RolePengguna.admin,
-                          };
-                          // Tambahkan password jika diisi
-                          if (passwordCtrl.text.isNotEmpty) {
-                            payload['password'] = passwordCtrl.text;
+                    const SizedBox(height: 24),
+
+                    // Tombol simpan
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: saving
+                            ? null
+                            : () async {
+                          if (!formKey.currentState!.validate()) return;
+                          setModal(() => saving = true);
+                          try {
+                            final payload = <String, dynamic>{
+                              'nip': nipCtrl.text.trim(),
+                              'nama': namaCtrl.text.trim(),
+                              'email': emailCtrl.text.trim(),
+                              'jabatan': jabatanCtrl.text.trim(),
+                              'unit_kerja': unitCtrl.text.trim(),
+                              // FIX: tipe selalu mahasiswa_magang
+                              'tipe': 'mahasiswa_magang',
+                              'role': roleNotifier.value.name,
+                              'is_admin':
+                              roleNotifier.value == RolePengguna.admin,
+                            };
+                            if (passwordCtrl.text.isNotEmpty) {
+                              payload['password'] = passwordCtrl.text;
+                            }
+
+                            if (existing == null) {
+                              await _api.tambahPegawai(payload);
+                            } else {
+                              await _api.updatePegawai(
+                                  existing.id, payload);
+                            }
+
+                            if (sheetCtx.mounted) {
+                              Navigator.pop(sheetCtx);
+                            }
+                            _muat();
+                          } catch (e) {
+                            if (sheetCtx.mounted) {
+                              ScaffoldMessenger.of(sheetCtx)
+                                  .showSnackBar(SnackBar(
+                                content: Text('Gagal: $e'),
+                                backgroundColor: AppColors.error,
+                              ));
+                            }
                           }
-                          if (existing == null) {
-                            await _api.tambahPegawai(payload);
-                          } else {
-                            await _api.updatePegawai(
-                                existing.id, payload);
-                          }
-                          if (ctx.mounted) Navigator.pop(ctx);
-                          _muat();
-                        } catch (e) {
-                          if (ctx.mounted) {
-                            ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(
-                                  content: Text('Gagal: $e'),
-                                  backgroundColor: AppColors.error),
-                            );
-                          }
-                        }
-                        setModal(() => saving = false);
-                      },
-                      child: saving
-                          ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2))
-                          : Text(existing == null ? 'Tambah' : 'Simpan'),
+                          setModal(() => saving = false);
+                        },
+                        child: saving
+                            ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2))
+                            : Text(existing == null ? 'Tambah' : 'Simpan'),
+                      ),
                     ),
                   ],
                 ),
@@ -285,37 +318,11 @@ class _KelolaPegawaiPageState extends State<KelolaPegawaiPage> {
     );
   }
 
-  String _labelTipe(TipePegawai t) {
-    switch (t) {
-      case TipePegawai.pns:
-        return 'PNS / ASN';
-      case TipePegawai.mahasiswaMagang:
-        return 'Mahasiswa Magang';
-      case TipePegawai.karyawanSwasta:
-        return 'Karyawan Swasta';
-      case TipePegawai.tamu:
-        return 'Tamu';
-    }
-  }
-
-  String _tipeToString(TipePegawai t) {
-    switch (t) {
-      case TipePegawai.pns:
-        return 'pns';
-      case TipePegawai.mahasiswaMagang:
-        return 'mahasiswa_magang';
-      case TipePegawai.karyawanSwasta:
-        return 'karyawan_swasta';
-      case TipePegawai.tamu:
-        return 'tamu';
-    }
-  }
-
   void _konfirmasiHapus(BuildContext context, Pegawai p) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Hapus Pegawai'),
+        title: const Text('Hapus Mahasiswa'),
         content: Text('Yakin ingin menghapus ${p.nama}?'),
         actions: [
           TextButton(
@@ -346,6 +353,7 @@ class _KelolaPegawaiPageState extends State<KelolaPegawaiPage> {
   }
 }
 
+// ── Item list pegawai ─────────────────────────────────────────────────────────
 class _PegawaiItem extends StatelessWidget {
   final Pegawai pegawai;
   final VoidCallback onEdit;
@@ -373,7 +381,7 @@ class _PegawaiItem extends StatelessWidget {
             style:
             const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
         subtitle: Text(
-          '${pegawai.nip} · ${pegawai.labelTipe}',
+          '${pegawai.nip} · ${pegawai.isAdmin ? "Admin" : "Mahasiswa Magang"}',
           style: const TextStyle(
               fontSize: 12, color: AppColors.textSecondary),
         ),

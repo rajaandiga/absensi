@@ -19,13 +19,8 @@ class ApiService {
       headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
     ));
 
-    // Log request/response saat development — hapus saat production
-    _dio.interceptors.add(PrettyDioLogger(
-      requestBody: true,
-      responseBody: true,
-    ));
+    _dio.interceptors.add(PrettyDioLogger(requestBody: true, responseBody: true));
 
-    // Interceptor: otomatis sisipkan token di setiap request
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
         final token = await _storage.read(key: AppConstants.keyToken);
@@ -34,9 +29,7 @@ class ApiService {
         }
         handler.next(options);
       },
-      onError: (error, handler) {
-        handler.next(error);
-      },
+      onError: (error, handler) => handler.next(error),
     ));
   }
 
@@ -64,12 +57,11 @@ class ApiService {
 
   Future<Map<String, dynamic>> submitAbsen({
     required String pegawaiId,
-    required String jenis,
-    required String metode,
+    required String jenis,   // 'masuk' | 'pulang'
+    required String metode,  // 'gps' | 'wifi' | 'wfh'
     double? latitude,
     double? longitude,
     String? ssidWifi,
-    String? acaraId,
   }) async {
     final response = await _dio.post('/absensi', data: {
       'pegawai_id': pegawaiId,
@@ -78,7 +70,6 @@ class ApiService {
       'latitude': latitude,
       'longitude': longitude,
       'ssid_wifi': ssidWifi,
-      'acara_id': acaraId,
       'waktu': DateTime.now().toIso8601String(),
     });
     return response.data as Map<String, dynamic>;
@@ -106,7 +97,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> ajukanIzin({
     required String pegawaiId,
-    required String jenis, // 'izin' | 'sakit'
+    required String jenis,
     required String tanggalMulai,
     required String tanggalSelesai,
     required String keterangan,
@@ -127,6 +118,14 @@ class ApiService {
     final response = await _dio.get('/izin', queryParameters: {
       'pegawai_id': pegawaiId,
     });
+    return response.data as List<dynamic>;
+  }
+
+  // ── WFH Schedule ──────────────────────────────────────────────────────────
+
+  /// Ambil jadwal WFH dari server (list hari WFH aktif)
+  Future<List<dynamic>> getJadwalWfh() async {
+    final response = await _dio.get('/jadwal-wfh');
     return response.data as List<dynamic>;
   }
 
@@ -153,14 +152,12 @@ class ApiService {
     return response.data as List<dynamic>;
   }
 
-  Future<Map<String, dynamic>> tambahPegawai(
-      Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> tambahPegawai(Map<String, dynamic> data) async {
     final response = await _dio.post('/admin/pegawai', data: data);
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> updatePegawai(
-      String id, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updatePegawai(String id, Map<String, dynamic> data) async {
     final response = await _dio.put('/admin/pegawai/$id', data: data);
     return response.data as Map<String, dynamic>;
   }
@@ -174,14 +171,29 @@ class ApiService {
     return response.data as List<dynamic>;
   }
 
-  Future<Map<String, dynamic>> setujuiIzin(
-      String izinId, String status) async {
-    final response =
-    await _dio.put('/admin/izin/$izinId', data: {'status': status});
+  /// Semua izin (bukan hanya pending) untuk tab "Semua" di admin
+  Future<List<dynamic>> getSemuaIzin() async {
+    final response = await _dio.get('/admin/izin');
+    return response.data as List<dynamic>;
+  }
+
+  Future<Map<String, dynamic>> setujuiIzin(String izinId, String status) async {
+    final response = await _dio.put('/admin/izin/$izinId', data: {'status': status});
     return response.data as Map<String, dynamic>;
   }
 
-  // ── Token Management ───────────────────────────────────────────────────────
+  // ── Admin: kelola jadwal WFH ───────────────────────────────────────────────
+
+  Future<List<dynamic>> getJadwalWfhAdmin() async {
+    final response = await _dio.get('/admin/jadwal-wfh');
+    return response.data as List<dynamic>;
+  }
+
+  Future<void> simpanJadwalWfh(List<Map<String, dynamic>> jadwal) async {
+    await _dio.post('/admin/jadwal-wfh', data: {'jadwal': jadwal});
+  }
+
+  // ── Token ──────────────────────────────────────────────────────────────────
 
   Future<void> simpanToken(String token) async {
     await _storage.write(key: AppConstants.keyToken, value: token);

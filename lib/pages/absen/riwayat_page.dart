@@ -22,6 +22,15 @@ class _RiwayatPageState extends State<RiwayatPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _muat());
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh data setiap kali halaman ini aktif kembali
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _muat();
+    });
+  }
+
   void _muat() {
     final pegawai = context.read<AuthProvider>().pegawai;
     if (pegawai == null) return;

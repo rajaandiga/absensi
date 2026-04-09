@@ -3,6 +3,7 @@ import '../../data/services/lokasi_service.dart';
 import '../../data/services/api_service.dart';
 import '../../data/models/absensi_model.dart';
 import '../../data/models/pegawai_model.dart';
+import '../../data/models/jadwal_wfh_model.dart';
 
 enum AbsenStatus { idle, memvalidasi, berhasil, gagal }
 
@@ -13,14 +14,17 @@ class AbsenProvider extends ChangeNotifier {
   AbsenStatus _status = AbsenStatus.idle;
   String _pesan = '';
   HasilValidasiLokasi? _hasilValidasi;
+
   bool _sudahAbsenMasuk = false;
   bool _sudahAbsenPulang = false;
   DateTime? _waktuMasuk;
   DateTime? _waktuPulang;
 
-  // Riwayat absen bulan ini
   List<Absensi> _riwayat = [];
   bool _loadingRiwayat = false;
+
+  // Jadwal WFH — diambil dari server, default Jumat
+  List<JadwalWfh> _jadwalWfh = JadwalWfh.defaultJadwal();
 
   AbsenStatus get status => _status;
   String get pesan => _pesan;
@@ -31,56 +35,104 @@ class AbsenProvider extends ChangeNotifier {
   DateTime? get waktuPulang => _waktuPulang;
   List<Absensi> get riwayat => _riwayat;
   bool get loadingRiwayat => _loadingRiwayat;
+  List<JadwalWfh> get jadwalWfh => _jadwalWfh;
 
-  /// Proses absen — validasi lokasi lalu kirim ke server
-  Future<void> absen(Pegawai pegawai, {String? acaraId}) async {
-    _status = AbsenStatus.memvalidasi;
-    _pesan = 'Memvalidasi lokasi...';
-    notifyListeners();
+  /// Apakah hari ini adalah hari WFH berdasarkan jadwal
+  bool get hariIniWfh {
+    final hariIni = DateTime.now().weekday; // 1=Sen ... 5=Jum
+    return _jadwalWfh.any((j) => j.aktif && j.weekday == hariIni);
+  }
 
-    // 1. Validasi lokasi (GPS → WiFi otomatis)
-    _hasilValidasi = await _lokasiService.validasiLokasi();
-
-    if (!_hasilValidasi!.valid) {
-      _status = AbsenStatus.gagal;
-      _pesan = _hasilValidasi!.pesan;
+  /// Muat jadwal WFH dari server (fallback ke default kalau gagal)
+  Future<void> muatJadwalWfh() async {
+    try {
+      final data = await _api.getJadwalWfh();
+      if (data.isNotEmpty) {
+        _jadwalWfh = data
+            .map((e) => JadwalWfh.fromJson(e as Map<String, dynamic>))
+            .where((j) => j.aktif)
+            .toList();
+      }
       notifyListeners();
-      return;
+    } catch (_) {
+      // Tetap pakai default (Jumat)
     }
+  }
 
-    // 2. Kirim ke server
-    _pesan = 'Menyimpan absensi...';
+  /// Proses absen — WFH bypass lokasi, WFO validasi GPS/WiFi
+  Future<void> absen(Pegawai pegawai) async {
+    _status = AbsenStatus.memvalidasi;
+
+    if (hariIniWfh) {
+      _pesan = 'Mencatat absen WFH...';
+    } else {
+      _pesan = 'Memvalidasi lokasi...';
+    }
     notifyListeners();
+
+    String metode;
+    double? lat, lon;
+    String? ssid;
+
+    if (hariIniWfh) {
+      // WFH: bypass lokasi sepenuhnya
+      metode = 'wfh';
+      _pesan = 'Menyimpan absensi WFH...';
+      notifyListeners();
+    } else {
+      // WFO: validasi GPS lalu WiFi
+      _hasilValidasi = await _lokasiService.validasiLokasi();
+      if (!_hasilValidasi!.valid) {
+        _status = AbsenStatus.gagal;
+        _pesan = _hasilValidasi!.pesan;
+        notifyListeners();
+        return;
+      }
+      metode = _hasilValidasi!.metode == MetodeValidasiLokasi.wifi ? 'wifi' : 'gps';
+      lat = _hasilValidasi!.latitude;
+      lon = _hasilValidasi!.longitude;
+      ssid = _hasilValidasi!.ssid;
+      _pesan = 'Menyimpan absensi...';
+      notifyListeners();
+    }
 
     try {
       final jenisAbsen = _sudahAbsenMasuk ? 'pulang' : 'masuk';
-      final metode = _hasilValidasi!.metode == MetodeValidasiLokasi.wifi
-          ? 'wifi'
-          : 'gps';
 
       await _api.submitAbsen(
         pegawaiId: pegawai.id,
         jenis: jenisAbsen,
         metode: metode,
-        // FIX: kirim latitude/longitude dari hasil validasi GPS
-        latitude: _hasilValidasi!.latitude,
-        longitude: _hasilValidasi!.longitude,
-        ssidWifi: _hasilValidasi!.ssid,
-        acaraId: acaraId,
+        latitude: lat,
+        longitude: lon,
+        ssidWifi: ssid,
       );
 
-      // Update state lokal
+      final now = DateTime.now();
       if (!_sudahAbsenMasuk) {
         _sudahAbsenMasuk = true;
-        _waktuMasuk = DateTime.now();
+        _waktuMasuk = now;
       } else {
         _sudahAbsenPulang = true;
-        _waktuPulang = DateTime.now();
+        _waktuPulang = now;
       }
 
       _status = AbsenStatus.berhasil;
-      _pesan = _hasilValidasi!.pesan;
+      if (hariIniWfh) {
+        _pesan = jenisAbsen == 'masuk'
+            ? 'Absen masuk WFH berhasil dicatat ✓'
+            : 'Absen pulang WFH berhasil dicatat ✓';
+      } else {
+        _pesan = _hasilValidasi?.pesan ?? 'Absensi berhasil dicatat';
+      }
       notifyListeners();
+
+      // Refresh riwayat otomatis setelah absen berhasil
+      await muatRiwayat(
+        pegawaiId: pegawai.id,
+        bulan: now.month,
+        tahun: now.year,
+      );
     } catch (e) {
       _status = AbsenStatus.gagal;
       _pesan = 'Gagal menyimpan absensi ke server. Coba lagi.';
@@ -101,12 +153,9 @@ class AbsenProvider extends ChangeNotifier {
         _waktuPulang = DateTime.parse(data['waktu_pulang'] as String);
       }
       notifyListeners();
-    } catch (_) {
-      // Gagal load status — biarkan default (belum absen)
-    }
+    } catch (_) {}
   }
 
-  /// Load riwayat absen bulan tertentu
   Future<void> muatRiwayat({
     required String pegawaiId,
     required int bulan,
@@ -114,7 +163,6 @@ class AbsenProvider extends ChangeNotifier {
   }) async {
     _loadingRiwayat = true;
     notifyListeners();
-
     try {
       final data = await _api.getRiwayatAbsen(
         pegawaiId: pegawaiId,
@@ -127,7 +175,6 @@ class AbsenProvider extends ChangeNotifier {
     } catch (_) {
       _riwayat = [];
     }
-
     _loadingRiwayat = false;
     notifyListeners();
   }

@@ -14,6 +14,7 @@ import '../../data/models/pegawai_model.dart';
 import '../../data/models/izin_model.dart';
 import 'kelola_pegawai_page.dart';
 import 'kelola_izin_page.dart';
+import 'kelola_wfh_page.dart';
 
 class AdminDashboardPage extends StatefulWidget {
   const AdminDashboardPage({super.key});
@@ -31,6 +32,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       const _BerandaAdmin(),
       const KelolaPegawaiPage(),
       const KelolaIzinPage(),
+      const KelolaWfhPage(),
     ];
 
     return Scaffold(
@@ -49,12 +51,17 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           NavigationDestination(
             icon: Icon(Icons.people_outline),
             selectedIcon: Icon(Icons.people),
-            label: 'Pegawai',
+            label: 'Magang',
           ),
           NavigationDestination(
             icon: Icon(Icons.assignment_outlined),
             selectedIcon: Icon(Icons.assignment),
             label: 'Izin',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.home_work_outlined),
+            selectedIcon: Icon(Icons.home_work),
+            label: 'WFH',
           ),
         ],
       ),

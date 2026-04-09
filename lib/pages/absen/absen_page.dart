@@ -10,6 +10,7 @@ import '../../data/models/absensi_model.dart';
 import 'riwayat_page.dart';
 import 'izin_page.dart';
 import 'profil_page.dart';
+import 'kalender_page.dart';
 
 class AbsenPage extends StatefulWidget {
   const AbsenPage({super.key});
@@ -24,6 +25,7 @@ class _AbsenPageState extends State<AbsenPage> {
   final List<Widget> _pages = const [
     _BerandaAbsen(),
     IzinPage(),
+    KalenderPage(),
     RiwayatPage(),
     ProfilPage(),
   ];
@@ -34,7 +36,9 @@ class _AbsenPageState extends State<AbsenPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final pegawai = context.read<AuthProvider>().pegawai;
       if (pegawai != null) {
-        context.read<AbsenProvider>().muatStatusHariIni(pegawai.id);
+        final provider = context.read<AbsenProvider>();
+        provider.muatStatusHariIni(pegawai.id);
+        provider.muatJadwalWfh();
       }
     });
   }
@@ -42,10 +46,7 @@ class _AbsenPageState extends State<AbsenPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _navIndex,
-        children: _pages,
-      ),
+      body: IndexedStack(index: _navIndex, children: _pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _navIndex,
         onDestinationSelected: (i) => setState(() => _navIndex = i),
@@ -63,6 +64,11 @@ class _AbsenPageState extends State<AbsenPage> {
             label: 'Izin',
           ),
           NavigationDestination(
+            icon: Icon(Icons.calendar_month_outlined),
+            selectedIcon: Icon(Icons.calendar_month),
+            label: 'Kalender',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.history_outlined),
             selectedIcon: Icon(Icons.history),
             label: 'Riwayat',
@@ -78,7 +84,7 @@ class _AbsenPageState extends State<AbsenPage> {
   }
 }
 
-// ── Halaman beranda (tab pertama) ─────────────────────────────────────────────
+// ── Beranda ───────────────────────────────────────────────────────────────────
 class _BerandaAbsen extends StatelessWidget {
   const _BerandaAbsen();
 
@@ -105,6 +111,7 @@ class _BerandaAbsen extends StatelessWidget {
             children: [
               _KartuPegawai(pegawai: pegawai),
               const SizedBox(height: 16),
+              _BannerWfh(),        // <── banner WFH muncul kalau hari ini WFH
               _KartuStatusHariIni(),
               const SizedBox(height: 16),
               _TombolAbsen(pegawai: pegawai),
@@ -128,19 +135,18 @@ class _BerandaAbsen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Notifikasi',
-                style: TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 16),
-            const _NotifikasiItem(
+          children: const [
+            Text('Notifikasi',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+            SizedBox(height: 16),
+            _NotifikasiItem(
               icon: Icons.info_outline,
               warna: AppColors.primary,
               judul: 'Pengingat absen',
               isi: 'Jangan lupa absen masuk sebelum jam 08:00 WIB.',
             ),
-            const SizedBox(height: 8),
-            const _NotifikasiItem(
+            SizedBox(height: 8),
+            _NotifikasiItem(
               icon: Icons.check_circle_outline,
               warna: AppColors.success,
               judul: 'Sistem aktif',
@@ -148,6 +154,56 @@ class _BerandaAbsen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Banner WFH — muncul otomatis kalau hari ini WFH ──────────────────────────
+class _BannerWfh extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final absen = context.watch<AbsenProvider>();
+    if (!absen.hariIniWfh) return const SizedBox.shrink();
+
+    final namaHari = absen.jadwalWfh
+        .where((j) => j.aktif && j.weekday == DateTime.now().weekday)
+        .map((j) => j.namaHari)
+        .firstOrNull ?? 'Hari ini';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF3B82F6).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+            color: const Color(0xFF3B82F6).withOpacity(0.35), width: 0.8),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.home_work_outlined,
+              size: 18, color: Color(0xFF3B82F6)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$namaHari — Hari WFH',
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1D4ED8)),
+                ),
+                const Text(
+                  'Kamu bisa absen dari mana saja hari ini. Validasi lokasi tidak diperlukan.',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF3B82F6)),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -215,8 +271,7 @@ class _KartuPegawaiState extends State<_KartuPegawai> {
   void initState() {
     super.initState();
     _sekarang = DateTime.now();
-    _timer = Timer.periodic(
-        const Duration(seconds: 1), (_) {
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _sekarang = DateTime.now());
     });
   }
@@ -230,8 +285,7 @@ class _KartuPegawaiState extends State<_KartuPegawai> {
   @override
   Widget build(BuildContext context) {
     final jam = DateFormat('HH:mm:ss').format(_sekarang);
-    final tanggal =
-    DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(_sekarang);
+    final tanggal = DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(_sekarang);
 
     return Card(
       child: Padding(
@@ -265,6 +319,7 @@ class _KartuPegawaiState extends State<_KartuPegawai> {
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
                           color: AppColors.textPrimary)),
+                  // Label "Mahasiswa Magang" dari model
                   Text(widget.pegawai.labelTipe,
                       style: const TextStyle(
                           fontSize: 12, color: AppColors.textSecondary)),
@@ -291,7 +346,7 @@ class _KartuPegawaiState extends State<_KartuPegawai> {
   }
 }
 
-// ── Status hari ini ────────────────────────────────────────────────────────────
+// ── Status hari ini ───────────────────────────────────────────────────────────
 class _KartuStatusHariIni extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -304,18 +359,38 @@ class _KartuStatusHariIni extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Status hari ini',
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textSecondary)),
+                Row(
+                  children: [
+                    const Text('Status hari ini',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textSecondary)),
+                    // Badge WFH kecil di samping judul
+                    if (absen.hariIniWfh) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF3B82F6).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text('WFH',
+                            style: TextStyle(
+                                fontSize: 10,
+                                color: Color(0xFF1D4ED8),
+                                fontWeight: FontWeight.w600)),
+                      ),
+                    ],
+                  ],
+                ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
                     _StatusItem(
                       label: 'Masuk',
-                      nilai: absen.sudahAbsenMasuk &&
-                          absen.waktuMasuk != null
+                      nilai: absen.sudahAbsenMasuk && absen.waktuMasuk != null
                           ? fmt.format(absen.waktuMasuk!)
                           : '—',
                       warna: absen.sudahAbsenMasuk
@@ -325,8 +400,7 @@ class _KartuStatusHariIni extends StatelessWidget {
                     const SizedBox(width: 12),
                     _StatusItem(
                       label: 'Pulang',
-                      nilai: absen.sudahAbsenPulang &&
-                          absen.waktuPulang != null
+                      nilai: absen.sudahAbsenPulang && absen.waktuPulang != null
                           ? fmt.format(absen.waktuPulang!)
                           : '—',
                       warna: absen.sudahAbsenPulang
@@ -377,8 +451,7 @@ class _StatusItem extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                     color: warna)),
             const Text('WIB',
-                style: TextStyle(
-                    fontSize: 11, color: AppColors.textHint)),
+                style: TextStyle(fontSize: 11, color: AppColors.textHint)),
           ],
         ),
       ),
@@ -386,7 +459,7 @@ class _StatusItem extends StatelessWidget {
   }
 }
 
-// ── Tombol Absen ───────────────────────────────────────────────────────────────
+// ── Tombol Absen ──────────────────────────────────────────────────────────────
 class _TombolAbsen extends StatelessWidget {
   final dynamic pegawai;
   const _TombolAbsen({required this.pegawai});
@@ -395,28 +468,7 @@ class _TombolAbsen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AbsenProvider>(
       builder: (_, absen, __) {
-        final sudahSelesai =
-            absen.sudahAbsenMasuk && absen.sudahAbsenPulang;
-
-        if (absen.status == AbsenStatus.berhasil ||
-            absen.status == AbsenStatus.gagal) {
-          return Column(
-            children: [
-              _HasilValidasiCard(
-                berhasil: absen.status == AbsenStatus.berhasil,
-                pesan: absen.pesan,
-                hasilValidasi: absen.hasilValidasi,
-              ),
-              const SizedBox(height: 12),
-              if (!sudahSelesai)
-                OutlinedButton(
-                  onPressed: () => absen.reset(),
-                  child: const Text('Absen Lagi'),
-                ),
-            ],
-          );
-        }
-
+        // Sedang memproses
         if (absen.status == AbsenStatus.memvalidasi) {
           return Card(
             child: Padding(
@@ -430,15 +482,36 @@ class _TombolAbsen extends StatelessWidget {
                       style: const TextStyle(color: AppColors.textSecondary)),
                   const SizedBox(height: 8),
                   const Text('Jangan tutup aplikasi',
-                      style: TextStyle(
-                          fontSize: 12, color: AppColors.textHint)),
+                      style:
+                      TextStyle(fontSize: 12, color: AppColors.textHint)),
                 ],
               ),
             ),
           );
         }
 
-        if (sudahSelesai) {
+        // Setelah absen (berhasil / gagal)
+        if (absen.status == AbsenStatus.berhasil ||
+            absen.status == AbsenStatus.gagal) {
+          return Column(
+            children: [
+              _HasilValidasiCard(
+                berhasil: absen.status == AbsenStatus.berhasil,
+                pesan: absen.pesan,
+                hasilValidasi: absen.hasilValidasi,
+                isWfh: absen.hariIniWfh,
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: () => absen.reset(),
+                child: const Text('OK'),
+              ),
+            ],
+          );
+        }
+
+        // Sudah absen masuk & pulang hari ini
+        if (absen.sudahAbsenMasuk && absen.sudahAbsenPulang) {
           return Card(
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -461,21 +534,30 @@ class _TombolAbsen extends StatelessWidget {
           );
         }
 
+        final isWfh = absen.hariIniWfh;
         final labelTombol =
         absen.sudahAbsenMasuk ? 'Absen Pulang' : 'Absen Masuk';
+        final ikonTombol = absen.sudahAbsenMasuk
+            ? Icons.logout_rounded
+            : (isWfh ? Icons.home_work_outlined : Icons.login_rounded);
+        final warnaTombol =
+        absen.sudahAbsenMasuk ? AppColors.primaryDark : AppColors.primary;
 
-        return ElevatedButton.icon(
-          onPressed: () => absen.absen(pegawai),
-          icon: Icon(absen.sudahAbsenMasuk
-              ? Icons.logout_rounded
-              : Icons.login_rounded),
-          label: Text(labelTombol),
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            backgroundColor: absen.sudahAbsenMasuk
-                ? AppColors.primaryDark
-                : AppColors.primary,
-          ),
+        return Column(
+          children: [
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => absen.absen(pegawai),
+                icon: Icon(ikonTombol),
+                label: Text(isWfh ? '$labelTombol (WFH)' : labelTombol),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: warnaTombol,
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
@@ -486,11 +568,13 @@ class _HasilValidasiCard extends StatelessWidget {
   final bool berhasil;
   final String pesan;
   final HasilValidasiLokasi? hasilValidasi;
+  final bool isWfh;
 
   const _HasilValidasiCard({
     required this.berhasil,
     required this.pesan,
     this.hasilValidasi,
+    this.isWfh = false,
   });
 
   @override
@@ -498,8 +582,7 @@ class _HasilValidasiCard extends StatelessWidget {
     final bgColor =
     berhasil ? AppColors.successSurface : AppColors.errorSurface;
     final iconColor = berhasil ? AppColors.success : AppColors.error;
-    final icon =
-    berhasil ? Icons.check_circle_outline : Icons.error_outline;
+    final icon = berhasil ? Icons.check_circle_outline : Icons.error_outline;
 
     return Container(
       width: double.infinity,
@@ -526,19 +609,19 @@ class _HasilValidasiCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text(pesan,
-              style: TextStyle(fontSize: 13, color: iconColor)),
-          if (berhasil && hasilValidasi != null) ...[
+          Text(pesan, style: TextStyle(fontSize: 13, color: iconColor)),
+          if (berhasil) ...[
             const SizedBox(height: 8),
             Container(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.5),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                'Metode: ${hasilValidasi!.metode == MetodeValidasiLokasi.wifi ? "WiFi Kantor" : "GPS"}',
+                isWfh
+                    ? 'Metode: WFH (bypass lokasi)'
+                    : 'Metode: ${hasilValidasi?.metode == MetodeValidasiLokasi.wifi ? "WiFi Kantor" : "GPS"}',
                 style: const TextStyle(
                     fontSize: 11, color: AppColors.textSecondary),
               ),
@@ -550,37 +633,48 @@ class _HasilValidasiCard extends StatelessWidget {
   }
 }
 
-// ── Info validasi ──────────────────────────────────────────────────────────────
+// ── Info validasi ─────────────────────────────────────────────────────────────
 class _InfoValidasi extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final isWfh = context.watch<AbsenProvider>().hariIniWfh;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Sistem validasi lokasi',
+            const Text('Sistem validasi',
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                     color: AppColors.textSecondary)),
             const SizedBox(height: 10),
-            _InfoRow(
-              icon: Icons.gps_fixed,
-              warna: AppColors.success,
-              judul: 'Lapis 1 — GPS',
-              deskripsi:
-              'Cek koordinat dalam radius 150m kantor BPS',
-            ),
-            const SizedBox(height: 8),
-            _InfoRow(
-              icon: Icons.wifi,
-              warna: AppColors.primary,
-              judul: 'Lapis 2 — WiFi',
-              deskripsi:
-              'Fallback otomatis jika GPS lemah di dalam gedung',
-            ),
+            if (isWfh)
+              const _InfoRow(
+                icon: Icons.home_work_outlined,
+                warna: Color(0xFF3B82F6),
+                judul: 'Mode WFH',
+                deskripsi:
+                'Hari ini WFH — validasi GPS & WiFi tidak diperlukan.',
+              )
+            else ...[
+              const _InfoRow(
+                icon: Icons.gps_fixed,
+                warna: AppColors.success,
+                judul: 'Lapis 1 — GPS',
+                deskripsi: 'Cek koordinat dalam radius 150m kantor BPS',
+              ),
+              const SizedBox(height: 8),
+              const _InfoRow(
+                icon: Icons.wifi,
+                warna: AppColors.primary,
+                judul: 'Lapis 2 — WiFi',
+                deskripsi:
+                'Fallback otomatis jika GPS lemah di dalam gedung',
+              ),
+            ],
           ],
         ),
       ),
