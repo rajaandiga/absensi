@@ -53,6 +53,14 @@ class ApiService {
     await _storage.delete(key: AppConstants.keyToken);
   }
 
+  Future<void> gantiPassword({
+    required String passwordBaru,
+  }) async {
+    await _dio.post('/auth/ganti-password', data: {
+      'password_baru': passwordBaru,
+    });
+  }
+
   // ── Absensi ────────────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> submitAbsen({
@@ -70,7 +78,7 @@ class ApiService {
       'latitude': latitude,
       'longitude': longitude,
       'ssid_wifi': ssidWifi,
-      'waktu': DateTime.now().toIso8601String(),
+      'waktu': DateTime.now().toLocal().toString().split('.').first.replaceAll(' ', 'T'),
     });
     return response.data as Map<String, dynamic>;
   }

@@ -18,7 +18,7 @@ class AppConstants {
   ];
 
   // URL backend BPS (isi saat server sudah siap)
-  static const String baseUrl = 'https://absensidatabase-production-9b3c.up.railway.app';
+  static const String baseUrl = 'https://absensidatabase-production-9b3c.up.railway.app/api';
 
   // Timeout
   static const connectTimeout = Duration(seconds: 15);

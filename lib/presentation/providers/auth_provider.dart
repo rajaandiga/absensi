@@ -15,8 +15,11 @@ class AuthProvider extends ChangeNotifier {
   String? _errorMessage;
 
   AuthStatus get status => _status;
+
   Pegawai? get pegawai => _pegawai;
+
   String? get errorMessage => _errorMessage;
+
   bool get isAdmin => _pegawai?.isAdmin ?? false;
 
   /// Cek apakah sudah login saat buka aplikasi
@@ -94,8 +97,16 @@ class AuthProvider extends ChangeNotifier {
       return 'NIP atau password salah.';
     }
     if (msg.contains('DioException') || msg.contains('DioError')) {
-      return 'Koneksi gagal. Pastikan internet aktif dan coba lagi.';
+      // Coba ambil pesan dari response server
+      try {
+        final dioError = error as dynamic;
+        final responseData = dioError.response?.data;
+        if (responseData != null && responseData['message'] != null) {
+          return responseData['message'].toString();
+        }
+      } catch (_) {}
+      return 'Error: $msg';
     }
-    return 'Terjadi kesalahan. Coba lagi.';
+    return 'Terjadi kesalahan: $msg';
   }
 }

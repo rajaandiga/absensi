@@ -143,7 +143,7 @@ class _BerandaAbsen extends StatelessWidget {
               icon: Icons.info_outline,
               warna: AppColors.primary,
               judul: 'Pengingat absen',
-              isi: 'Jangan lupa absen masuk sebelum jam 08:00 WIB.',
+              isi: 'Jangan lupa absen masuk sebelum jam 07:30 WIB.',
             ),
             SizedBox(height: 8),
             _NotifikasiItem(
@@ -664,7 +664,7 @@ class _InfoValidasi extends StatelessWidget {
                 icon: Icons.gps_fixed,
                 warna: AppColors.success,
                 judul: 'Lapis 1 — GPS',
-                deskripsi: 'Cek koordinat dalam radius 150m kantor BPS',
+                deskripsi: 'Cek koordinat dalam radius 50m kantor BPS',
               ),
               const SizedBox(height: 8),
               const _InfoRow(

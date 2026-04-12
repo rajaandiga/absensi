@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../presentation/providers/auth_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/models/pegawai_model.dart';
+import '../../data/services/api_service.dart';
 
 class ProfilPage extends StatelessWidget {
   const ProfilPage({super.key});
@@ -18,16 +19,11 @@ class ProfilPage extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Avatar besar
             const SizedBox(height: 8),
             _AvatarBesar(pegawai: pegawai),
             const SizedBox(height: 20),
-
-            // Info detail
             _KartuInfo(pegawai: pegawai),
             const SizedBox(height: 12),
-
-            // Aksi
             _KartuAksi(context: context),
           ],
         ),
@@ -198,18 +194,14 @@ class _KartuAksi extends StatelessWidget {
         children: [
           ListTile(
             leading: const Icon(Icons.lock_outline, color: AppColors.textSecondary),
-            title: const Text('Ganti Password',
-                style: TextStyle(fontSize: 14)),
-            trailing: const Icon(Icons.chevron_right,
-                color: AppColors.textHint, size: 20),
+            title: const Text('Ganti Password', style: TextStyle(fontSize: 14)),
+            trailing: const Icon(Icons.chevron_right, color: AppColors.textHint, size: 20),
             onTap: () => _dialogGantiPassword(context),
           ),
           const Divider(height: 0, indent: 52),
           ListTile(
-            leading:
-            const Icon(Icons.logout, color: AppColors.error),
-            title: const Text('Keluar',
-                style: TextStyle(fontSize: 14, color: AppColors.error)),
+            leading: const Icon(Icons.logout, color: AppColors.error),
+            title: const Text('Keluar', style: TextStyle(fontSize: 14, color: AppColors.error)),
             onTap: () => _konfirmasiLogout(context),
           ),
         ],
@@ -218,7 +210,6 @@ class _KartuAksi extends StatelessWidget {
   }
 
   void _dialogGantiPassword(BuildContext ctx) {
-    final oldCtrl = TextEditingController();
     final newCtrl = TextEditingController();
     final confirmCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
@@ -233,19 +224,9 @@ class _KartuAksi extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextFormField(
-                controller: oldCtrl,
-                obscureText: true,
-                decoration:
-                const InputDecoration(labelText: 'Password lama'),
-                validator: (v) =>
-                (v == null || v.isEmpty) ? 'Wajib diisi' : null,
-              ),
-              const SizedBox(height: 10),
-              TextFormField(
                 controller: newCtrl,
                 obscureText: true,
-                decoration:
-                const InputDecoration(labelText: 'Password baru'),
+                decoration: const InputDecoration(labelText: 'Password baru'),
                 validator: (v) {
                   if (v == null || v.isEmpty) return 'Wajib diisi';
                   if (v.length < 6) return 'Minimal 6 karakter';
@@ -256,8 +237,7 @@ class _KartuAksi extends StatelessWidget {
               TextFormField(
                 controller: confirmCtrl,
                 obscureText: true,
-                decoration: const InputDecoration(
-                    labelText: 'Konfirmasi password baru'),
+                decoration: const InputDecoration(labelText: 'Konfirmasi password baru'),
                 validator: (v) {
                   if (v != newCtrl.text) return 'Password tidak cocok';
                   return null;
@@ -272,17 +252,27 @@ class _KartuAksi extends StatelessWidget {
             child: const Text('Batal'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                minimumSize: const Size(80, 40)),
-            onPressed: () {
+            style: ElevatedButton.styleFrom(minimumSize: const Size(80, 40)),
+            onPressed: () async {
               if (formKey.currentState!.validate()) {
                 Navigator.pop(ctx);
-                // TODO: panggil API ganti password
-                ScaffoldMessenger.of(ctx).showSnackBar(
-                  const SnackBar(
-                      content: Text(
-                          'Fitur ganti password akan tersedia setelah backend terhubung')),
-                );
+                final api = ApiService();
+                try {
+                  await api.gantiPassword(
+                    passwordBaru: newCtrl.text,
+                  );
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(content: Text('Password berhasil diubah! 🎉')),
+                    );
+                  }
+                } catch (e) {
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      SnackBar(content: Text('Gagal: ${e.toString()}')),
+                    );
+                  }
+                }
               }
             },
             child: const Text('Simpan'),
