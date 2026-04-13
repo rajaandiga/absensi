@@ -33,13 +33,23 @@ class _IzinPageState extends State<IzinPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
+        backgroundColor: AppColors.cardDark,
+        foregroundColor: Colors.white,
         title: const Text('Izin & Sakit'),
+        titleTextStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+        ),
         bottom: TabBar(
           controller: _tab,
-          indicatorColor: Colors.white,
+          indicatorColor: AppColors.primaryLight,
+          indicatorWeight: 3,
           labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
+          unselectedLabelColor: Colors.white60,
+          labelStyle: const TextStyle(fontWeight: FontWeight.w600),
           tabs: const [
             Tab(text: 'Ajukan'),
             Tab(text: 'Riwayat'),
@@ -105,21 +115,20 @@ class _FormIzinState extends State<_FormIzin> {
 
   Future<void> _ajukan() async {
     if (!_formKey.currentState!.validate()) return;
-
     final pegawai = context.read<AuthProvider>().pegawai;
     if (pegawai == null) return;
 
     setState(() => _loading = true);
-
     try {
       await widget.api.ajukanIzin(
         pegawaiId: pegawai.id,
         jenis: _jenis.name,
-        tanggalMulai: _tanggalMulai.toIso8601String().split('T').first,
-        tanggalSelesai: _tanggalSelesai.toIso8601String().split('T').first,
+        tanggalMulai:
+        _tanggalMulai.toIso8601String().split('T').first,
+        tanggalSelesai:
+        _tanggalSelesai.toIso8601String().split('T').first,
         keterangan: _keteranganCtrl.text.trim(),
       );
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -144,7 +153,6 @@ class _FormIzinState extends State<_FormIzin> {
         );
       }
     }
-
     setState(() => _loading = false);
   }
 
@@ -159,176 +167,162 @@ class _FormIzinState extends State<_FormIzin> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Pilih jenis
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Jenis pengajuan',
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textSecondary)),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        _PilihJenisTile(
-                          label: 'Izin',
-                          icon: Icons.event_note,
-                          warna: AppColors.primary,
-                          dipilih: _jenis == JenisIzin.izin,
-                          onTap: () => setState(() => _jenis = JenisIzin.izin),
+            const SizedBox(height: 4),
+            // Jenis
+            _SectionLabel(label: 'Jenis Pengajuan'),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                _PilihJenisTile(
+                  label: 'Izin',
+                  icon: Icons.event_note_rounded,
+                  warna: const Color(0xFF3B82F6),
+                  dipilih: _jenis == JenisIzin.izin,
+                  onTap: () => setState(() => _jenis = JenisIzin.izin),
+                ),
+                const SizedBox(width: 12),
+                _PilihJenisTile(
+                  label: 'Sakit',
+                  icon: Icons.medical_services_outlined,
+                  warna: AppColors.warning,
+                  dipilih: _jenis == JenisIzin.sakit,
+                  onTap: () => setState(() => _jenis = JenisIzin.sakit),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Periode
+            _SectionLabel(label: 'Periode'),
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border),
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _TombolTanggal(
+                          label: 'Mulai',
+                          tanggal: fmt.format(_tanggalMulai),
+                          onTap: () => _pilihTanggal(isMulai: true),
                         ),
-                        const SizedBox(width: 10),
-                        _PilihJenisTile(
-                          label: 'Sakit',
-                          icon: Icons.medical_services_outlined,
-                          warna: AppColors.warning,
-                          dipilih: _jenis == JenisIzin.sakit,
-                          onTap: () => setState(() => _jenis = JenisIzin.sakit),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10),
+                        child: Icon(Icons.arrow_forward_rounded,
+                            size: 18, color: AppColors.textHint),
+                      ),
+                      Expanded(
+                        child: _TombolTanggal(
+                          label: 'Selesai',
+                          tanggal: fmt.format(_tanggalSelesai),
+                          onTap: () => _pilihTanggal(isMulai: false),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primarySurface,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.calendar_today_outlined,
+                            size: 14, color: AppColors.primary),
+                        const SizedBox(width: 8),
+                        Text(
+                          '$_jumlahHari hari kerja',
+                          style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.primaryDark,
+                              fontWeight: FontWeight.w700),
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
 
-            // Pilih tanggal
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Periode',
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textSecondary)),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _TombolTanggal(
-                            label: 'Mulai',
-                            tanggal: fmt.format(_tanggalMulai),
-                            onTap: () => _pilihTanggal(isMulai: true),
-                          ),
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Icon(Icons.arrow_forward,
-                              size: 16, color: AppColors.textHint),
-                        ),
-                        Expanded(
-                          child: _TombolTanggal(
-                            label: 'Selesai',
-                            tanggal: fmt.format(_tanggalSelesai),
-                            onTap: () => _pilihTanggal(isMulai: false),
-                          ),
-                        ),
-                      ],
+            // Keterangan
+            _SectionLabel(
+              label: _jenis == JenisIzin.sakit
+                  ? 'Diagnosis / Keterangan Sakit'
+                  : 'Alasan Izin',
+            ),
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border),
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _keteranganCtrl,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      hintText: _jenis == JenisIzin.sakit
+                          ? 'Contoh: Demam, flu, dsb.'
+                          : 'Contoh: Urusan keluarga, dsb.',
+                      fillColor: AppColors.background,
                     ),
-                    const SizedBox(height: 10),
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) {
+                        return 'Keterangan tidak boleh kosong';
+                      }
+                      if (v.trim().length < 10) {
+                        return 'Keterangan minimal 10 karakter';
+                      }
+                      return null;
+                    },
+                  ),
+                  if (_jenis == JenisIzin.sakit) ...[
+                    const SizedBox(height: 12),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: AppColors.primarySurface,
-                        borderRadius: BorderRadius.circular(8),
+                        color: AppColors.warningSurface,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                            color: AppColors.warning.withOpacity(0.3)),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                      child: const Row(
                         children: [
-                          const Icon(Icons.info_outline,
-                              size: 14, color: AppColors.primary),
-                          const SizedBox(width: 6),
-                          Text(
-                            '$_jumlahHari hari kerja',
-                            style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.primaryDark,
-                                fontWeight: FontWeight.w500),
+                          Icon(Icons.info_outline,
+                              size: 16, color: AppColors.warning),
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Sakit > 2 hari wajib menyerahkan surat keterangan dokter.',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.warning),
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ],
-                ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-
-            // Keterangan
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _jenis == JenisIzin.sakit
-                          ? 'Diagnosis / keterangan sakit'
-                          : 'Alasan izin',
-                      style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.textSecondary),
-                    ),
-                    const SizedBox(height: 10),
-                    TextFormField(
-                      controller: _keteranganCtrl,
-                      maxLines: 4,
-                      decoration: InputDecoration(
-                        hintText: _jenis == JenisIzin.sakit
-                            ? 'Contoh: Demam, flu, dsb.'
-                            : 'Contoh: Urusan keluarga, dsb.',
-                      ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'Keterangan tidak boleh kosong';
-                        }
-                        if (v.trim().length < 10) {
-                          return 'Keterangan minimal 10 karakter';
-                        }
-                        return null;
-                      },
-                    ),
-                    if (_jenis == JenisIzin.sakit) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppColors.warningSurface,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                              color: AppColors.warning.withOpacity(0.3)),
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.info_outline,
-                                size: 14, color: AppColors.warning),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Untuk sakit > 2 hari, wajib menyerahkan surat keterangan dokter.',
-                                style: TextStyle(
-                                    fontSize: 11, color: AppColors.warning),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
             ElevatedButton.icon(
               onPressed: _loading ? null : _ajukan,
@@ -340,9 +334,30 @@ class _FormIzinState extends State<_FormIzin> {
                       color: Colors.white, strokeWidth: 2))
                   : const Icon(Icons.send_rounded),
               label: Text(_loading ? 'Mengirim...' : 'Ajukan Sekarang'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.cardDark,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String label;
+  const _SectionLabel({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        color: AppColors.textPrimary,
       ),
     );
   }
@@ -370,24 +385,25 @@ class _PilihJenisTile extends StatelessWidget {
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.symmetric(vertical: 18),
           decoration: BoxDecoration(
-            color: dipilih ? warna.withOpacity(0.1) : AppColors.background,
-            borderRadius: BorderRadius.circular(10),
+            color: dipilih ? warna.withOpacity(0.1) : AppColors.surface,
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: dipilih ? warna : AppColors.border,
-              width: dipilih ? 1.5 : 0.5,
+              width: dipilih ? 2 : 1,
             ),
           ),
           child: Column(
             children: [
-              Icon(icon, color: dipilih ? warna : AppColors.textHint, size: 24),
-              const SizedBox(height: 4),
+              Icon(icon,
+                  color: dipilih ? warna : AppColors.textHint, size: 26),
+              const SizedBox(height: 6),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w700,
                   color: dipilih ? warna : AppColors.textSecondary,
                 ),
               ),
@@ -415,11 +431,11 @@ class _TombolTanggal extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: AppColors.background,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.border, width: 0.5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -427,11 +443,11 @@ class _TombolTanggal extends StatelessWidget {
             Text(label,
                 style: const TextStyle(
                     fontSize: 11, color: AppColors.textHint)),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Text(tanggal,
                 style: const TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary)),
           ],
         ),
@@ -485,11 +501,23 @@ class _RiwayatIzinState extends State<_RiwayatIzin> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.event_available,
-                size: 64, color: AppColors.textHint.withOpacity(0.4)),
-            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Icon(Icons.event_available,
+                  size: 48,
+                  color: AppColors.textHint.withOpacity(0.6)),
+            ),
+            const SizedBox(height: 16),
             const Text('Belum ada riwayat izin',
-                style: TextStyle(color: AppColors.textHint)),
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary)),
           ],
         ),
       );
@@ -500,7 +528,7 @@ class _RiwayatIzinState extends State<_RiwayatIzin> {
       child: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: _data.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (_, i) => _IzinItem(izin: _data[i]),
       ),
     );
@@ -513,83 +541,89 @@ class _IzinItem extends StatelessWidget {
 
   Color get _warnaStatus {
     switch (izin.status) {
-      case StatusIzin.pending: return AppColors.warning;
-      case StatusIzin.disetujui: return AppColors.success;
-      case StatusIzin.ditolak: return AppColors.error;
+      case StatusIzin.pending:
+        return AppColors.warning;
+      case StatusIzin.disetujui:
+        return AppColors.success;
+      case StatusIzin.ditolak:
+        return AppColors.error;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final fmt = DateFormat('d MMM', 'id_ID');
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: (izin.jenis == JenisIzin.sakit
-                    ? AppColors.warning
-                    : AppColors.primary)
-                    .withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                izin.jenis == JenisIzin.sakit
-                    ? Icons.medical_services_outlined
-                    : Icons.event_note,
-                size: 20,
-                color: izin.jenis == JenisIzin.sakit
-                    ? AppColors.warning
-                    : AppColors.primary,
-              ),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: (izin.jenis == JenisIzin.sakit
+                  ? AppColors.warning
+                  : const Color(0xFF3B82F6))
+                  .withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(izin.labelJenis,
-                      style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w500)),
-                  Text(
-                    '${fmt.format(izin.tanggalMulai)} — ${fmt.format(izin.tanggalSelesai)}  ·  ${izin.jumlahHari} hari',
+            child: Icon(
+              izin.jenis == JenisIzin.sakit
+                  ? Icons.medical_services_outlined
+                  : Icons.event_note_rounded,
+              size: 22,
+              color: izin.jenis == JenisIzin.sakit
+                  ? AppColors.warning
+                  : const Color(0xFF3B82F6),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(izin.labelJenis,
                     style: const TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary),
+                        fontSize: 14, fontWeight: FontWeight.w700)),
+                Text(
+                  '${fmt.format(izin.tanggalMulai)} — ${fmt.format(izin.tanggalSelesai)}  ·  ${izin.jumlahHari} hari',
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.textSecondary),
+                ),
+                if (izin.keterangan.isNotEmpty)
+                  Text(
+                    izin.keterangan,
+                    style: const TextStyle(
+                        fontSize: 11, color: AppColors.textHint),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  if (izin.keterangan.isNotEmpty)
-                    Text(
-                      izin.keterangan,
-                      style: const TextStyle(
-                          fontSize: 11, color: AppColors.textHint),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                ],
-              ),
+              ],
             ),
-            Container(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: _warnaStatus.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                    color: _warnaStatus.withOpacity(0.3), width: 0.5),
-              ),
-              child: Text(
-                izin.labelStatus,
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: _warnaStatus),
-              ),
+          ),
+          Container(
+            padding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: _warnaStatus.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                  color: _warnaStatus.withOpacity(0.3), width: 1),
             ),
-          ],
-        ),
+            child: Text(
+              izin.labelStatus,
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: _warnaStatus),
+            ),
+          ),
+        ],
       ),
     );
   }

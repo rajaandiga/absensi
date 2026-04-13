@@ -25,7 +25,6 @@ class _RiwayatPageState extends State<RiwayatPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Refresh data setiap kali halaman ini aktif kembali
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _muat();
     });
@@ -59,15 +58,41 @@ class _RiwayatPageState extends State<RiwayatPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Riwayat Absensi'),
+        backgroundColor: AppColors.cardDark,
+        foregroundColor: Colors.white,
+        titleTextStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+        ),
         actions: [
-          TextButton.icon(
-            onPressed: _pilihBulan,
-            icon: const Icon(Icons.calendar_month, size: 16),
-            label: Text(
-              DateFormat('MMM yyyy', 'id_ID').format(_bulanDipilih),
-              style: const TextStyle(fontWeight: FontWeight.w500),
+          GestureDetector(
+            onTap: _pilihBulan,
+            child: Container(
+              margin: const EdgeInsets.only(right: 16),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.calendar_month, size: 14,
+                      color: Colors.white),
+                  const SizedBox(width: 6),
+                  Text(
+                    DateFormat('MMM yyyy', 'id_ID').format(_bulanDipilih),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                        fontSize: 13),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -85,12 +110,27 @@ class _RiwayatPageState extends State<RiwayatPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.event_busy,
-                      size: 64, color: AppColors.textHint.withOpacity(0.4)),
-                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Icon(Icons.event_busy,
+                        size: 48,
+                        color: AppColors.textHint.withOpacity(0.6)),
+                  ),
+                  const SizedBox(height: 16),
                   Text(
-                    'Tidak ada data absensi\n${DateFormat('MMMM yyyy', 'id_ID').format(_bulanDipilih)}',
-                    textAlign: TextAlign.center,
+                    'Tidak ada data absensi',
+                    style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary),
+                  ),
+                  Text(
+                    DateFormat('MMMM yyyy', 'id_ID').format(_bulanDipilih),
                     style: const TextStyle(color: AppColors.textHint),
                   ),
                 ],
@@ -98,53 +138,69 @@ class _RiwayatPageState extends State<RiwayatPage> {
             );
           }
 
-          // Rekap ringkas di atas
           final hadir = absen.riwayat
-              .where((a) => a.status == StatusAbsen.hadir).length;
+              .where((a) => a.status == StatusAbsen.hadir)
+              .length;
           final terlambat = absen.riwayat
-              .where((a) => a.status == StatusAbsen.terlambat).length;
+              .where((a) => a.status == StatusAbsen.terlambat)
+              .length;
           final izin = absen.riwayat
-              .where((a) => a.status == StatusAbsen.izin).length;
+              .where((a) => a.status == StatusAbsen.izin)
+              .length;
           final sakit = absen.riwayat
-              .where((a) => a.status == StatusAbsen.sakit).length;
+              .where((a) => a.status == StatusAbsen.sakit)
+              .length;
 
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
               // Rekap kartu
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Rekap ${DateFormat('MMMM yyyy', 'id_ID').format(_bulanDipilih)}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.textSecondary,
-                        ),
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.cardDark,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Rekap ${DateFormat('MMMM yyyy', 'id_ID').format(_bulanDipilih)}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textOnDarkSecondary,
                       ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          _RekapChip(label: 'Hadir', nilai: hadir, warna: AppColors.success),
-                          const SizedBox(width: 6),
-                          _RekapChip(label: 'Terlambat', nilai: terlambat, warna: AppColors.warning),
-                          const SizedBox(width: 6),
-                          _RekapChip(label: 'Izin', nilai: izin, warna: AppColors.primary),
-                          const SizedBox(width: 6),
-                          _RekapChip(label: 'Sakit', nilai: sakit, warna: AppColors.primaryLight),
-                        ],
-                      ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        _RekapChip(
+                            label: 'Hadir',
+                            nilai: hadir,
+                            warna: AppColors.success),
+                        const SizedBox(width: 8),
+                        _RekapChip(
+                            label: 'Terlambat',
+                            nilai: terlambat,
+                            warna: AppColors.warning),
+                        const SizedBox(width: 8),
+                        _RekapChip(
+                            label: 'Izin',
+                            nilai: izin,
+                            warna: const Color(0xFF3B82F6)),
+                        const SizedBox(width: 8),
+                        _RekapChip(
+                            label: 'Sakit',
+                            nilai: sakit,
+                            warna: AppColors.primaryLight),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
-              // List riwayat
               ...absen.riwayat.map((a) => _ItemRiwayat(absensi: a)),
             ],
           );
@@ -169,19 +225,18 @@ class _RekapChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: warna.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: warna.withOpacity(0.2), width: 0.5),
+          color: warna.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           children: [
             Text(
               '$nilai',
               style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
                 color: warna,
               ),
             ),
@@ -189,7 +244,7 @@ class _RekapChip extends StatelessWidget {
               label,
               style: const TextStyle(
                 fontSize: 10,
-                color: AppColors.textSecondary,
+                color: AppColors.textOnDarkSecondary,
               ),
             ),
           ],
@@ -205,11 +260,16 @@ class _ItemRiwayat extends StatelessWidget {
 
   Color get _warnaStatus {
     switch (absensi.status) {
-      case StatusAbsen.hadir: return AppColors.success;
-      case StatusAbsen.terlambat: return AppColors.warning;
-      case StatusAbsen.izin: return AppColors.primary;
-      case StatusAbsen.sakit: return AppColors.primaryLight;
-      case StatusAbsen.alpha: return AppColors.error;
+      case StatusAbsen.hadir:
+        return AppColors.success;
+      case StatusAbsen.terlambat:
+        return AppColors.warning;
+      case StatusAbsen.izin:
+        return const Color(0xFF3B82F6);
+      case StatusAbsen.sakit:
+        return AppColors.primaryLight;
+      case StatusAbsen.alpha:
+        return AppColors.error;
     }
   }
 
@@ -218,111 +278,118 @@ class _ItemRiwayat extends StatelessWidget {
     final fmt = DateFormat('HH:mm');
     final fmtTgl = DateFormat('EEE, d MMM', 'id_ID');
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            // Tanggal
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppColors.primarySurface,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    DateFormat('d').format(absensi.waktuMasuk),
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  Text(
-                    DateFormat('MMM', 'id_ID').format(absensi.waktuMasuk),
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: AppColors.primaryDark,
-                    ),
-                  ),
-                ],
-              ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      child: Row(
+        children: [
+          // Tanggal box
+          Container(
+            width: 46,
+            height: 50,
+            decoration: BoxDecoration(
+              color: AppColors.cardDark,
+              borderRadius: BorderRadius.circular(12),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    fmtTgl.format(absensi.waktuMasuk),
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textPrimary,
-                    ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  DateFormat('d').format(absensi.waktuMasuk),
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    height: 1,
                   ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      const Icon(Icons.login_rounded,
+                ),
+                Text(
+                  DateFormat('MMM', 'id_ID').format(absensi.waktuMasuk),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: AppColors.textOnDarkSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  fmtTgl.format(absensi.waktuMasuk),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.login_rounded,
+                        size: 12, color: AppColors.success),
+                    const SizedBox(width: 4),
+                    Text(
+                      fmt.format(absensi.waktuMasuk),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    if (absensi.waktuPulang != null) ...[
+                      const SizedBox(width: 10),
+                      const Icon(Icons.logout_rounded,
                           size: 12, color: AppColors.textSecondary),
                       const SizedBox(width: 4),
                       Text(
-                        fmt.format(absensi.waktuMasuk),
+                        fmt.format(absensi.waktuPulang!),
                         style: const TextStyle(
                           fontSize: 12,
                           color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                      if (absensi.waktuPulang != null) ...[
-                        const SizedBox(width: 8),
-                        const Icon(Icons.logout_rounded,
-                            size: 12, color: AppColors.textSecondary),
-                        const SizedBox(width: 4),
-                        Text(
-                          fmt.format(absensi.waktuPulang!),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
                     ],
-                  ),
-                  Text(
-                    'via ${absensi.labelMetode}',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textHint,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: _warnaStatus.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                    color: _warnaStatus.withOpacity(0.3), width: 0.5),
-              ),
-              child: Text(
-                absensi.labelStatus,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: _warnaStatus,
+                  ],
                 ),
+                Text(
+                  'via ${absensi.labelMetode}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textHint,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: _warnaStatus.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                  color: _warnaStatus.withOpacity(0.3), width: 1),
+            ),
+            child: Text(
+              absensi.labelStatus,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: _warnaStatus,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

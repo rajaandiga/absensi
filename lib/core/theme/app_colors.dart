@@ -1,31 +1,37 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Warna utama — terinspirasi dari halaman Claude
-  static const primary = Color(0xFF7F77DD);
-  static const primaryDark = Color(0xFF534AB7);
-  static const primaryLight = Color(0xFFAFA9EC);
-  static const primarySurface = Color(0xFFEEEDFE);
+  // Warna utama
+  static const primary = Color(0xFF16A34A);
+  static const primaryDark = Color(0xFF15803D);
+  static const primaryLight = Color(0xFF4ADE80);
+  static const primarySurface = Color(0xFFDCFCE7);
 
-  // Background — krem khas Claude
-  static const background = Color(0xFFF1EFE8);
+  // Background
+  static const background = Color(0xFFF8FAFC);
   static const surface = Color(0xFFFFFFFF);
-  static const surfaceVariant = Color(0xFFD3D1C7);
+  static const surfaceVariant = Color(0xFFF1F5F9);
+
+  // Dark card
+  static const cardDark = Color(0xFF0F172A);
+  static const cardDarkSecondary = Color(0xFF1E293B);
 
   // Teks
-  static const textPrimary = Color(0xFF2C2C2A);
-  static const textSecondary = Color(0xFF5F5E5A);
-  static const textHint = Color(0xFF888780);
+  static const textPrimary = Color(0xFF0F172A);
+  static const textSecondary = Color(0xFF64748B);
+  static const textHint = Color(0xFF94A3B8);
+  static const textOnDark = Color(0xFFFFFFFF);
+  static const textOnDarkSecondary = Color(0xFFCBD5E1);
 
   // Status
-  static const success = Color(0xFF1D9E75);
-  static const successSurface = Color(0xFFE1F5EE);
-  static const warning = Color(0xFFBA7517);
-  static const warningSurface = Color(0xFFFAEEDA);
-  static const error = Color(0xFFE24B4A);
-  static const errorSurface = Color(0xFFFCEBEB);
+  static const success = Color(0xFF16A34A);
+  static const successSurface = Color(0xFFDCFCE7);
+  static const warning = Color(0xFFD97706);
+  static const warningSurface = Color(0xFFFEF3C7);
+  static const error = Color(0xFFDC2626);
+  static const errorSurface = Color(0xFFFEE2E2);
 
   // Border
-  static const border = Color(0xFFD3D1C7);
-  static const borderDark = Color(0xFFB4B2A9);
+  static const border = Color(0xFFE2E8F0);
+  static const borderDark = Color(0xFFCBD5E1);
 }

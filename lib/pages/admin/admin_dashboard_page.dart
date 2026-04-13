@@ -51,7 +51,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           NavigationDestination(
             icon: Icon(Icons.people_outline),
             selectedIcon: Icon(Icons.people),
-            label: 'Magang',
+            label: 'Peserta Magang',
           ),
           NavigationDestination(
             icon: Icon(Icons.assignment_outlined),

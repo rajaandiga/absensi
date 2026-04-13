@@ -100,7 +100,7 @@ class _KelolaWfhPageState extends State<KelolaWfhPage> {
                     color: Colors.white, strokeWidth: 2))
                 : const Icon(Icons.save_outlined, color: Colors.white, size: 18),
             label: Text(_saving ? 'Menyimpan...' : 'Simpan',
-                style: const TextStyle(color: Colors.white)),
+                style: const TextStyle(color: Colors.black)),
           ),
         ],
       ),
