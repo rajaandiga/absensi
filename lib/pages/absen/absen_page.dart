@@ -19,7 +19,7 @@ class AbsenPage extends StatefulWidget {
   State<AbsenPage> createState() => _AbsenPageState();
 }
 
-class _AbsenPageState extends State<AbsenPage> {
+class _AbsenPageState extends State<AbsenPage> with WidgetsBindingObserver {
   int _navIndex = 0;
 
   final List<Widget> _pages = const [
@@ -33,6 +33,7 @@ class _AbsenPageState extends State<AbsenPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // [FIX #3] Pantau lifecycle app
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final pegawai = context.read<AuthProvider>().pegawai;
       if (pegawai != null) {
@@ -41,6 +42,25 @@ class _AbsenPageState extends State<AbsenPage> {
         provider.muatJadwalWfh();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this); // [FIX #3] Bersihkan observer
+    super.dispose();
+  }
+
+  // [FIX #3] Dipanggil otomatis saat app kembali dari background
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final pegawai = context.read<AuthProvider>().pegawai;
+      if (pegawai != null) {
+        final provider = context.read<AbsenProvider>();
+        provider.muatStatusHariIni(pegawai.id); // Refresh saat app dibuka kembali
+        provider.muatJadwalWfh();
+      }
+    }
   }
 
   @override
@@ -90,8 +110,26 @@ class _AbsenPageState extends State<AbsenPage> {
 }
 
 // ── Beranda ───────────────────────────────────────────────────────────────────
-class _BerandaAbsen extends StatelessWidget {
+// [FIX #REFRESH] Diubah dari StatelessWidget → StatefulWidget agar bisa pull-to-refresh
+class _BerandaAbsen extends StatefulWidget {
   const _BerandaAbsen();
+
+  @override
+  State<_BerandaAbsen> createState() => _BerandaAbsenState();
+}
+
+class _BerandaAbsenState extends State<_BerandaAbsen> {
+  // [FIX #REFRESH] Fungsi refresh dipanggil saat user tarik ke bawah
+  Future<void> _onRefresh() async {
+    final pegawai = context.read<AuthProvider>().pegawai;
+    if (pegawai != null) {
+      final provider = context.read<AbsenProvider>();
+      await Future.wait([
+        provider.muatStatusHariIni(pegawai.id),
+        provider.muatJadwalWfh(),
+      ]);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -101,27 +139,35 @@ class _BerandaAbsen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Hero Header ──────────────────────────────────────────
-              _HeroHeader(pegawai: pegawai),
-              // ── Body Content ─────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
-                child: Column(
-                  children: [
-                    _BannerWfh(),
-                    _KartuStatusHariIni(),
-                    const SizedBox(height: 16),
-                    _TombolAbsen(pegawai: pegawai),
-                    const SizedBox(height: 16),
-                    _InfoValidasi(),
-                  ],
+        // [FIX #REFRESH] Bungkus dengan RefreshIndicator agar bisa tarik ke bawah
+        child: RefreshIndicator(
+          onRefresh: _onRefresh,
+          color: AppColors.primary,
+          child: SingleChildScrollView(
+            // [FIX #REFRESH] physics wajib diset agar pull-to-refresh bisa terpicu
+            // meski konten pendek (tidak perlu scroll)
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Hero Header ──────────────────────────────────────────
+                _HeroHeader(pegawai: pegawai),
+                // ── Body Content ─────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+                  child: Column(
+                    children: [
+                      _BannerWfh(),
+                      _KartuStatusHariIni(),
+                      const SizedBox(height: 16),
+                      _TombolAbsen(pegawai: pegawai),
+                      const SizedBox(height: 16),
+                      _InfoValidasi(),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

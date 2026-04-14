@@ -20,6 +20,9 @@ class AbsenProvider extends ChangeNotifier {
   DateTime? _waktuMasuk;
   DateTime? _waktuPulang;
 
+  // [FIX #3] Simpan tanggal terakhir status dimuat, untuk deteksi ganti hari
+  DateTime? _tanggalStatusDimuat;
+
   List<Absensi> _riwayat = [];
   bool _loadingRiwayat = false;
 
@@ -127,7 +130,8 @@ class AbsenProvider extends ChangeNotifier {
       }
       notifyListeners();
 
-      // Refresh riwayat otomatis setelah absen berhasil
+      await muatStatusHariIni(pegawai.id);
+
       await muatRiwayat(
         pegawaiId: pegawai.id,
         bulan: now.month,
@@ -140,20 +144,42 @@ class AbsenProvider extends ChangeNotifier {
     }
   }
 
-  /// Load status absen hari ini dari server
+  bool _hariSama(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
   Future<void> muatStatusHariIni(String pegawaiId) async {
-    try {
-      final data = await _api.getStatusHariIni(pegawaiId);
-      _sudahAbsenMasuk = data['sudah_masuk'] as bool? ?? false;
-      _sudahAbsenPulang = data['sudah_pulang'] as bool? ?? false;
-      if (data['waktu_masuk'] != null) {
-        _waktuMasuk = DateTime.parse(data['waktu_masuk'] as String);
-      }
-      if (data['waktu_pulang'] != null) {
-        _waktuPulang = DateTime.parse(data['waktu_pulang'] as String);
-      }
+    final hariIni = DateTime.now();
+
+    if (_tanggalStatusDimuat != null &&
+        !_hariSama(_tanggalStatusDimuat!, hariIni)) {
+      _sudahAbsenMasuk = false;
+      _sudahAbsenPulang = false;
+      _waktuMasuk = null;
+      _waktuPulang = null;
       notifyListeners();
-    } catch (_) {}
+    }
+
+    for (int attempt = 0; attempt < 3; attempt++) {
+      try {
+        final data = await _api.getStatusHariIni(pegawaiId);
+        _sudahAbsenMasuk = data['sudah_masuk'] as bool? ?? false;
+        _sudahAbsenPulang = data['sudah_pulang'] as bool? ?? false;
+        if (data['waktu_masuk'] != null) {
+          _waktuMasuk = DateTime.parse(data['waktu_masuk'] as String);
+        }
+        if (data['waktu_pulang'] != null) {
+          _waktuPulang = DateTime.parse(data['waktu_pulang'] as String);
+        }
+        _tanggalStatusDimuat = hariIni;
+        notifyListeners();
+        return;
+      } catch (_) {
+        if (attempt < 2) {
+          await Future.delayed(const Duration(seconds: 2));
+        }
+      }
+    }
+    _tanggalStatusDimuat = hariIni;
   }
 
   Future<void> muatRiwayat({

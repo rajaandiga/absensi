@@ -17,18 +17,15 @@ class AppConstants {
     'PBJ&SDM',
   ];
 
-  // URL backend BPS (isi saat server sudah siap)
+  // URL backend BPS
   static const String baseUrl = 'https://absensidatabase-production-9b3c.up.railway.app/api';
 
   // Timeout
-  static const connectTimeout = Duration(seconds: 15);
-  static const receiveTimeout = Duration(seconds: 15);
+  static const connectTimeout = Duration(seconds: 20);
+  static const receiveTimeout = Duration(seconds: 30);
 
   // Storage keys
   static const String keyToken = 'auth_token';
   static const String keyUser = 'user_data';
 
-  // Jam kerja (untuk menentukan terlambat)
-  static const int jamMasukHour = 8;
-  static const int jamMasukMinute = 0;
 }
