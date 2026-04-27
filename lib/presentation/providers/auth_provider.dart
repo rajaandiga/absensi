@@ -13,19 +13,30 @@ class AuthProvider extends ChangeNotifier {
   AuthStatus _status = AuthStatus.initial;
   Pegawai? _pegawai;
   String? _errorMessage;
+  bool _sessionExpired = false;
 
   AuthStatus get status => _status;
-
   Pegawai? get pegawai => _pegawai;
-
   String? get errorMessage => _errorMessage;
-
   bool get isAdmin => _pegawai?.isAdmin ?? false;
 
-  /// Cek apakah sudah login saat buka aplikasi
+  bool get sessionExpired => _sessionExpired;
+
+  void resetSessionExpired() {
+    _sessionExpired = false;
+  }
+
+  /// Cek apakah sudah login saat buka aplikasi, sekaligus daftarkan auto logout
   Future<void> cekStatusLogin() async {
     _status = AuthStatus.loading;
     notifyListeners();
+
+    _api.onSessionExpired = () {
+      if (_status == AuthStatus.authenticated) {
+        _sessionExpired = true;
+        _doLogout();
+      }
+    };
 
     final sudahLogin = await _api.sudahLogin();
     if (sudahLogin) {
@@ -39,6 +50,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> login(String nip, String password) async {
     _status = AuthStatus.loading;
     _errorMessage = null;
+    _sessionExpired = false;
     notifyListeners();
 
     try {
@@ -50,7 +62,6 @@ class AuthProvider extends ChangeNotifier {
       final pegawaiData = response['pegawai'] as Map<String, dynamic>;
       _pegawai = Pegawai.fromJson(pegawaiData);
 
-      // Simpan data pegawai lokal
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(AppConstants.keyUser, jsonEncode(pegawaiData));
 
@@ -64,6 +75,12 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    _sessionExpired = false;
+    await _doLogout();
+  }
+
+  /// Internal logout — (sesi expired)
+  Future<void> _doLogout() async {
     await _api.logout();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(AppConstants.keyUser);
@@ -94,10 +111,9 @@ class AuthProvider extends ChangeNotifier {
       return 'Tidak dapat terhubung ke server. Periksa koneksi internet.';
     }
     if (msg.contains('401')) {
-      return 'NIP atau password salah.';
+      return 'password salah.';
     }
     if (msg.contains('DioException') || msg.contains('DioError')) {
-      // Coba ambil pesan dari response server
       try {
         final dioError = error as dynamic;
         final responseData = dioError.response?.data;

@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../core/constants/app_constants.dart';
@@ -10,6 +11,9 @@ class ApiService {
 
   late final Dio _dio;
   final _storage = const FlutterSecureStorage();
+
+  /// Dipanggil otomatis saat server mengembalikan 401 (sesi habis)
+  VoidCallback? onSessionExpired;
 
   ApiService._internal() {
     _dio = Dio(BaseOptions(
@@ -29,7 +33,14 @@ class ApiService {
         }
         handler.next(options);
       },
-      onError: (error, handler) => handler.next(error),
+      onError: (error, handler) async {
+        // Jika 401 Unauthorized → token expired, auto logout
+        if (error.response?.statusCode == 401) {
+          await _storage.delete(key: AppConstants.keyToken);
+          onSessionExpired?.call();
+        }
+        handler.next(error);
+      },
     ));
   }
 
@@ -88,6 +99,7 @@ class ApiService {
     return response.data as Map<String, dynamic>;
   }
 
+  /// Riwayat berdasarkan bulan & tahun (lama, masih dipakai fallback)
   Future<List<dynamic>> getRiwayatAbsen({
     required String pegawaiId,
     required int bulan,
@@ -97,6 +109,22 @@ class ApiService {
       'pegawai_id': pegawaiId,
       'bulan': bulan,
       'tahun': tahun,
+    });
+    return response.data as List<dynamic>;
+  }
+
+  /// Riwayat berdasarkan rentang tanggal bebas
+  Future<List<dynamic>> getRiwayatAbsenRentang({
+    required String pegawaiId,
+    required DateTime tanggalMulai,
+    required DateTime tanggalSelesai,
+  }) async {
+    final fmt = (DateTime d) =>
+    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    final response = await _dio.get('/absensi/riwayat', queryParameters: {
+      'pegawai_id': pegawaiId,
+      'tanggal_mulai': fmt(tanggalMulai),
+      'tanggal_selesai': fmt(tanggalSelesai),
     });
     return response.data as List<dynamic>;
   }
@@ -131,7 +159,6 @@ class ApiService {
 
   // ── WFH Schedule ──────────────────────────────────────────────────────────
 
-  /// Ambil jadwal WFH dari server (list hari WFH aktif)
   Future<List<dynamic>> getJadwalWfh() async {
     final response = await _dio.get('/jadwal-wfh');
     return response.data as List<dynamic>;
@@ -151,6 +178,20 @@ class ApiService {
     final response = await _dio.get('/admin/rekap', queryParameters: {
       'bulan': bulan,
       'tahun': tahun,
+    });
+    return response.data as List<dynamic>;
+  }
+
+  /// Rekap admin berdasarkan rentang tanggal bebas
+  Future<List<dynamic>> getRekapRentang({
+    required DateTime tanggalMulai,
+    required DateTime tanggalSelesai,
+  }) async {
+    final fmt = (DateTime d) =>
+    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    final response = await _dio.get('/admin/rekap', queryParameters: {
+      'tanggal_mulai': fmt(tanggalMulai),
+      'tanggal_selesai': fmt(tanggalSelesai),
     });
     return response.data as List<dynamic>;
   }
@@ -179,7 +220,6 @@ class ApiService {
     return response.data as List<dynamic>;
   }
 
-  /// Semua izin (bukan hanya pending) untuk tab "Semua" di admin
   Future<List<dynamic>> getSemuaIzin() async {
     final response = await _dio.get('/admin/izin');
     return response.data as List<dynamic>;

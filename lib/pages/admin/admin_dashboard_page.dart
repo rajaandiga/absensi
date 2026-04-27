@@ -82,13 +82,20 @@ class _BerandaAdminState extends State<_BerandaAdmin> {
   List<Absensi> _absensiHariIni = [];
   bool _loading = true;
   bool _exporting = false;
-  DateTime _bulanDipilih = DateTime.now();
+
+  // Rentang tanggal export — default bulan ini
+  late DateTime _exportMulai;
+  late DateTime _exportSelesai;
+
   String _cariNama = '';
   StatusAbsen? _filterStatus;
 
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _exportMulai = DateTime(now.year, now.month, 1);
+    _exportSelesai = now;
     _muatData();
   }
 
@@ -107,8 +114,7 @@ class _BerandaAdminState extends State<_BerandaAdmin> {
     return _absensiHariIni.where((a) {
       final cocokNama = _cariNama.isEmpty ||
           a.namaPegawai.toLowerCase().contains(_cariNama.toLowerCase());
-      final cocokStatus =
-          _filterStatus == null || a.status == _filterStatus;
+      final cocokStatus = _filterStatus == null || a.status == _filterStatus;
       return cocokNama && cocokStatus;
     }).toList();
   }
@@ -141,9 +147,10 @@ class _BerandaAdminState extends State<_BerandaAdmin> {
                 _KartuStatistik(absensi: _absensiHariIni),
                 const SizedBox(height: 16),
                 _KartuExport(
-                  bulan: _bulanDipilih,
+                  tanggalMulai: _exportMulai,
+                  tanggalSelesai: _exportSelesai,
                   exporting: _exporting,
-                  onPilihBulan: _pilihBulan,
+                  onPilihRentang: _pilihRentangExport,
                   onExport: _exportExcel,
                 ),
                 const SizedBox(height: 16),
@@ -188,37 +195,93 @@ class _BerandaAdminState extends State<_BerandaAdmin> {
     );
   }
 
-  Future<void> _pilihBulan() async {
-    final picked = await showDatePicker(
+  Future<void> _pilihRentangExport() async {
+    final picked = await showDateRangePicker(
       context: context,
-      initialDate: _bulanDipilih,
+      initialDateRange:
+      DateTimeRange(start: _exportMulai, end: _exportSelesai),
       firstDate: DateTime(2024),
       lastDate: DateTime.now(),
-      initialDatePickerMode: DatePickerMode.year,
+      locale: const Locale('id', 'ID'),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: AppColors.primary,
+            onPrimary: Colors.white,
+            surface: AppColors.surface,
+          ),
+        ),
+        child: child!,
+      ),
     );
-    if (picked != null) setState(() => _bulanDipilih = picked);
+    if (picked != null) {
+      setState(() {
+        _exportMulai = picked.start;
+        _exportSelesai = picked.end;
+      });
+    }
   }
 
   Future<void> _exportExcel() async {
     setState(() => _exporting = true);
     try {
-      final data = await _api.getRekapBulanan(
-          bulan: _bulanDipilih.month, tahun: _bulanDipilih.year);
+      final data = await _api.getRekapRentang(
+        tanggalMulai: _exportMulai,
+        tanggalSelesai: _exportSelesai,
+      );
 
-      // MENGGUNAKAN NAMA 'workbook' AGAR TIDAK BENTROK DENGAN PREFIX IMPORT 'excel'
       final workbook = excel.Excel.createExcel();
       final sheet = workbook['Rekap Absensi'];
       workbook.delete('Sheet1');
 
+      final fmtTgl = DateFormat('d MMM yyyy', 'id_ID');
+      final labelRentang =
+          '${fmtTgl.format(_exportMulai)} – ${fmtTgl.format(_exportSelesai)}';
+
+      // Hitung jumlah hari kerja dalam rentang (Senin–Jumat)
+      int hariKerja = 0;
+      DateTime tgl = _exportMulai;
+      while (!tgl.isAfter(_exportSelesai)) {
+        if (tgl.weekday >= 1 && tgl.weekday <= 5) hariKerja++;
+        tgl = tgl.add(const Duration(days: 1));
+      }
+
+      // ── Baris judul rentang ───────────────────────────────────────────────
+      final judulCell = sheet.cell(
+          excel.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0));
+      judulCell.value = excel.TextCellValue('Rekap Absensi: $labelRentang');
+      judulCell.cellStyle = excel.CellStyle(
+        bold: true,
+        fontColorHex: excel.ExcelColor.fromHexString('#7F77DD'),
+        fontSize: 13,
+      );
+
+      final hkCell = sheet.cell(
+          excel.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1));
+      hkCell.value =
+          excel.TextCellValue('Hari Kerja dalam rentang: $hariKerja hari');
+      hkCell.cellStyle = excel.CellStyle(
+          italic: true,
+          fontColorHex: excel.ExcelColor.fromHexString('#6B7280'));
+
+      // ── Header tabel (baris ke-3, index 2) ───────────────────────────────
       final headers = [
-        'No', 'Nama', 'NIP', 'Unit Kerja',
-        'Hadir', 'Terlambat', 'Izin', 'Sakit', 'Tidak Hadir',
-        'Total Hari Kerja', '% Kehadiran',
+        'No',
+        'Nama',
+        'NIP',
+        'Unit Kerja',
+        'Hadir',
+        'Terlambat',
+        'Izin',
+        'Sakit',
+        'Tidak Hadir',
+        'Total Hari Kerja',
+        '% Kehadiran',
       ];
 
       for (var i = 0; i < headers.length; i++) {
         final cell = sheet.cell(
-            excel.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0));
+            excel.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 2));
         cell.value = excel.TextCellValue(headers[i]);
         cell.cellStyle = excel.CellStyle(
           bold: true,
@@ -227,6 +290,7 @@ class _BerandaAdminState extends State<_BerandaAdmin> {
         );
       }
 
+      // ── Data ──────────────────────────────────────────────────────────────
       for (var i = 0; i < data.length; i++) {
         final row = data[i] as Map<String, dynamic>;
         final nilai = [
@@ -239,28 +303,30 @@ class _BerandaAdminState extends State<_BerandaAdmin> {
           row['total_izin'] ?? 0,
           row['total_sakit'] ?? 0,
           row['total_alpha'] ?? 0,
-          row['total_hari_kerja'] ?? 0,
-          '${row['persentase']?.toStringAsFixed(1) ?? 0}%',
+          row['total_hari_kerja'] ?? hariKerja,
+          '${(row['persentase'] as num?)?.toStringAsFixed(1) ?? '0'}%',
         ];
         for (var j = 0; j < nilai.length; j++) {
           final cell = sheet.cell(excel.CellIndex.indexByColumnRow(
-              columnIndex: j, rowIndex: i + 1));
+              columnIndex: j, rowIndex: i + 3));
           final v = nilai[j];
-          cell.value =
-          v is int ? excel.IntCellValue(v) : excel.TextCellValue(v.toString());
+          cell.value = v is int
+              ? excel.IntCellValue(v)
+              : excel.TextCellValue(v.toString());
         }
       }
 
       final dir = await getApplicationDocumentsDirectory();
-      final namaBulan =
-      DateFormat('MMMM_yyyy', 'id_ID').format(_bulanDipilih);
-      final filePath = '${dir.path}/Rekap_Absensi_BPS_$namaBulan.xlsx';
+      final fmtFile = DateFormat('yyyyMMdd');
+      final namaFile =
+          'Rekap_Absensi_${fmtFile.format(_exportMulai)}_${fmtFile.format(_exportSelesai)}.xlsx';
+      final filePath = '${dir.path}/$namaFile';
 
       final fileBytes = workbook.save();
       if (fileBytes != null) {
         await File(filePath).writeAsBytes(fileBytes);
         await Share.shareXFiles([XFile(filePath)],
-            subject: 'Rekap Absensi BPS Jambi — $namaBulan');
+            subject: 'Rekap Absensi BPS Jambi — $labelRentang');
       }
     } catch (e) {
       if (mounted) {
@@ -304,18 +370,25 @@ class _KartuStatistik extends StatelessWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                _StatBox(label: 'Hadir', nilai: hadir, warna: AppColors.success),
+                _StatBox(
+                    label: 'Hadir', nilai: hadir, warna: AppColors.success),
                 const SizedBox(width: 6),
                 _StatBox(
-                    label: 'Terlambat', nilai: terlambat, warna: AppColors.warning),
+                    label: 'Terlambat',
+                    nilai: terlambat,
+                    warna: AppColors.warning),
                 const SizedBox(width: 6),
                 _StatBox(label: 'Izin', nilai: izin, warna: AppColors.primary),
                 const SizedBox(width: 6),
                 _StatBox(
-                    label: 'Sakit', nilai: sakit, warna: AppColors.primaryLight),
+                    label: 'Sakit',
+                    nilai: sakit,
+                    warna: AppColors.primaryLight),
                 const SizedBox(width: 6),
                 _StatBox(
-                    label: 'Total', nilai: total, warna: AppColors.textSecondary),
+                    label: 'Total',
+                    nilai: total,
+                    warna: AppColors.textSecondary),
               ],
             ),
           ],
@@ -357,19 +430,30 @@ class _StatBox extends StatelessWidget {
   }
 }
 
-// ── Export Excel ───────────────────────────────────────────────────────────────
+// ── Kartu Export Excel ─────────────────────────────────────────────────────────
 class _KartuExport extends StatelessWidget {
-  final DateTime bulan;
+  final DateTime tanggalMulai;
+  final DateTime tanggalSelesai;
   final bool exporting;
-  final VoidCallback onPilihBulan;
+  final VoidCallback onPilihRentang;
   final VoidCallback onExport;
 
   const _KartuExport({
-    required this.bulan,
+    required this.tanggalMulai,
+    required this.tanggalSelesai,
     required this.exporting,
-    required this.onPilihBulan,
+    required this.onPilihRentang,
     required this.onExport,
   });
+
+  String get _labelRentang {
+    final fmt = DateFormat('d MMM', 'id_ID');
+    final fmtThn = DateFormat('d MMM yyyy', 'id_ID');
+    if (tanggalMulai.year == tanggalSelesai.year) {
+      return '${fmt.format(tanggalMulai)} – ${fmtThn.format(tanggalSelesai)}';
+    }
+    return '${fmtThn.format(tanggalMulai)} – ${fmtThn.format(tanggalSelesai)}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -385,30 +469,28 @@ class _KartuExport extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                     color: AppColors.textSecondary)),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: onPilihBulan,
-                    icon: const Icon(Icons.calendar_month, size: 16),
-                    label: Text(DateFormat('MMMM yyyy', 'id_ID').format(bulan)),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: exporting ? null : onExport,
-                    icon: exporting
-                        ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.download, size: 16),
-                    label: Text(exporting ? 'Mengexport...' : 'Export Excel'),
-                  ),
-                ),
-              ],
+            OutlinedButton.icon(
+              onPressed: onPilihRentang,
+              icon: const Icon(Icons.date_range, size: 16),
+              label: Text(_labelRentang),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 44),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton.icon(
+              onPressed: exporting ? null : onExport,
+              icon: exporting
+                  ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 2))
+                  : const Icon(Icons.download, size: 16),
+              label: Text(exporting ? 'Mengexport...' : 'Export Excel'),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 44),
+              ),
             ),
           ],
         ),

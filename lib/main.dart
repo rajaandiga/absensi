@@ -35,8 +35,36 @@ class AbsensiBpsApp extends StatelessWidget {
 }
 
 /// Router utama — arahkan ke halaman yang sesuai berdasarkan status auth
-class _RootPage extends StatelessWidget {
+class _RootPage extends StatefulWidget {
   const _RootPage();
+
+  @override
+  State<_RootPage> createState() => _RootPageState();
+}
+
+class _RootPageState extends State<_RootPage> {
+  // Pantau perubahan AuthProvider untuk tampilkan notif sesi habis
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final auth = context.watch<AuthProvider>();
+
+    // Jika baru saja auto-logout karena sesi expired, tampilkan snackbar
+    if (auth.sessionExpired &&
+        auth.status == AuthStatus.unauthenticated) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        auth.resetSessionExpired();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sesi habis, silakan login kembali.'),
+            backgroundColor: Color(0xFFEF4444),
+            duration: Duration(seconds: 4),
+          ),
+        );
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +76,6 @@ class _RootPage extends StatelessWidget {
             return const _SplashScreen();
 
           case AuthStatus.authenticated:
-          // Admin → dashboard admin, pegawai biasa → halaman absen
             if (auth.isAdmin) return const AdminDashboardPage();
             return const AbsenPage();
 

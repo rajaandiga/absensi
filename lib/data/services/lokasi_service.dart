@@ -152,7 +152,6 @@ class LokasiService {
         );
       }
 
-      // Bersihkan tanda kutip yang kadang muncul di Android
       final ssidBersih = ssid.replaceAll('"', '').trim();
 
       final ssidValid = AppConstants.allowedSsids.any(
