@@ -20,12 +20,14 @@ class AppConstants {
   // URL backend BPS
   static const String baseUrl = 'https://absensidatabase-production-9b3c.up.railway.app/api';
 
-  // Timeout
+  // Timeout koneksi
   static const connectTimeout = Duration(seconds: 20);
   static const receiveTimeout = Duration(seconds: 30);
+
+  // Idle timeout (auto logout jika tidak ada aktivitas)
+  static const idleTimeout = Duration(minutes: 5);
 
   // Storage keys
   static const String keyToken = 'auth_token';
   static const String keyUser = 'user_data';
-
 }

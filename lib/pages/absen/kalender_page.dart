@@ -27,10 +27,12 @@ class _KalenderPageState extends State<KalenderPage> {
   void _muat() {
     final pegawai = context.read<AuthProvider>().pegawai;
     if (pegawai == null) return;
-    context.read<AbsenProvider>().muatRiwayat(
+    final mulai = DateTime(_bulanDipilih.year, _bulanDipilih.month, 1);
+    final selesai = DateTime(_bulanDipilih.year, _bulanDipilih.month + 1, 0);
+    context.read<AbsenProvider>().muatRiwayatRentang(
       pegawaiId: pegawai.id,
-      bulan: _bulanDipilih.month,
-      tahun: _bulanDipilih.year,
+      tanggalMulai: mulai,
+      tanggalSelesai: selesai,
     );
   }
 

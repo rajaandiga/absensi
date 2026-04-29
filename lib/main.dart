@@ -43,21 +43,19 @@ class _RootPage extends StatefulWidget {
 }
 
 class _RootPageState extends State<_RootPage> {
-  // Pantau perubahan AuthProvider untuk tampilkan notif sesi habis
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final auth = context.watch<AuthProvider>();
 
-    // Jika baru saja auto-logout karena sesi expired, tampilkan snackbar
-    if (auth.sessionExpired &&
-        auth.status == AuthStatus.unauthenticated) {
+    // Jika auto-logout karena idle timeout atau server 401, tampilkan snackbar
+    if (auth.sessionExpired && auth.status == AuthStatus.unauthenticated) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         auth.resetSessionExpired();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Sesi habis, silakan login kembali.'),
+            content: Text('Sesi habis karena tidak aktif. Silakan login kembali.'),
             backgroundColor: Color(0xFFEF4444),
             duration: Duration(seconds: 4),
           ),
@@ -76,8 +74,15 @@ class _RootPageState extends State<_RootPage> {
             return const _SplashScreen();
 
           case AuthStatus.authenticated:
-            if (auth.isAdmin) return const AdminDashboardPage();
-            return const AbsenPage();
+          // Listener membungkus seluruh app — setiap tap user akan mereset
+          // idle timer di AuthProvider, sehingga sesi tidak habis saat aktif.
+            return Listener(
+              behavior: HitTestBehavior.translucent,
+              onPointerDown: (_) => auth.aktivitasUser(),
+              child: auth.isAdmin
+                  ? const AdminDashboardPage()
+                  : const AbsenPage(),
+            );
 
           case AuthStatus.unauthenticated:
           case AuthStatus.error:

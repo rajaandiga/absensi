@@ -5,6 +5,8 @@ import '../../data/models/absensi_model.dart';
 import '../../data/models/pegawai_model.dart';
 import '../../data/models/jadwal_wfh_model.dart';
 
+export '../../data/models/absensi_model.dart' show AbsenStatus;
+
 enum AbsenStatus { idle, memvalidasi, berhasil, gagal }
 
 class AbsenProvider extends ChangeNotifier {
@@ -20,7 +22,7 @@ class AbsenProvider extends ChangeNotifier {
   DateTime? _waktuMasuk;
   DateTime? _waktuPulang;
 
-  // [FIX #3] Simpan tanggal terakhir status dimuat, untuk deteksi ganti hari
+  // Simpan tanggal terakhir status dimuat, untuk deteksi ganti hari
   DateTime? _tanggalStatusDimuat;
 
   List<Absensi> _riwayat = [];
@@ -42,7 +44,7 @@ class AbsenProvider extends ChangeNotifier {
 
   /// Apakah hari ini adalah hari WFH berdasarkan jadwal
   bool get hariIniWfh {
-    final hariIni = DateTime.now().weekday; // 1=Sen ... 5=Jum
+    final hariIni = DateTime.now().weekday; // 1=Sen ... 7=Min
     return _jadwalWfh.any((j) => j.aktif && j.weekday == hariIni);
   }
 
@@ -65,12 +67,7 @@ class AbsenProvider extends ChangeNotifier {
   /// Proses absen — WFH bypass lokasi, WFO validasi GPS/WiFi
   Future<void> absen(Pegawai pegawai) async {
     _status = AbsenStatus.memvalidasi;
-
-    if (hariIniWfh) {
-      _pesan = 'Mencatat absen WFH...';
-    } else {
-      _pesan = 'Memvalidasi lokasi...';
-    }
+    _pesan = hariIniWfh ? 'Mencatat absen WFH...' : 'Memvalidasi lokasi...';
     notifyListeners();
 
     String metode;
@@ -78,12 +75,10 @@ class AbsenProvider extends ChangeNotifier {
     String? ssid;
 
     if (hariIniWfh) {
-      // WFH: bypass lokasi sepenuhnya
       metode = 'wfh';
       _pesan = 'Menyimpan absensi WFH...';
       notifyListeners();
     } else {
-      // WFO: validasi GPS lalu WiFi
       _hasilValidasi = await _lokasiService.validasiLokasi();
       if (!_hasilValidasi!.valid) {
         _status = AbsenStatus.gagal;
@@ -132,10 +127,12 @@ class AbsenProvider extends ChangeNotifier {
 
       await muatStatusHariIni(pegawai.id);
 
-      await muatRiwayat(
+      // Muat riwayat bulan ini setelah absen
+      final mulai = DateTime(now.year, now.month, 1);
+      await muatRiwayatRentang(
         pegawaiId: pegawai.id,
-        bulan: now.month,
-        tahun: now.year,
+        tanggalMulai: mulai,
+        tanggalSelesai: now,
       );
     } catch (e) {
       _status = AbsenStatus.gagal;
@@ -182,18 +179,19 @@ class AbsenProvider extends ChangeNotifier {
     _tanggalStatusDimuat = hariIni;
   }
 
-  Future<void> muatRiwayat({
+  /// Muat riwayat berdasarkan rentang tanggal bebas
+  Future<void> muatRiwayatRentang({
     required String pegawaiId,
-    required int bulan,
-    required int tahun,
+    required DateTime tanggalMulai,
+    required DateTime tanggalSelesai,
   }) async {
     _loadingRiwayat = true;
     notifyListeners();
     try {
-      final data = await _api.getRiwayatAbsen(
+      final data = await _api.getRiwayatAbsenRentang(
         pegawaiId: pegawaiId,
-        bulan: bulan,
-        tahun: tahun,
+        tanggalMulai: tanggalMulai,
+        tanggalSelesai: tanggalSelesai,
       );
       _riwayat = data
           .map((e) => Absensi.fromJson(e as Map<String, dynamic>))

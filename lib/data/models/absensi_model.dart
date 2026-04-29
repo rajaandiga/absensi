@@ -85,52 +85,22 @@ class Absensi extends Equatable {
 
   String get labelStatus {
     switch (status) {
-      case StatusAbsen.hadir: return 'Hadir';
+      case StatusAbsen.hadir:     return 'Hadir';
       case StatusAbsen.terlambat: return 'Terlambat';
-      case StatusAbsen.izin: return 'Izin';
-      case StatusAbsen.sakit: return 'Sakit';
-      case StatusAbsen.alpha: return 'Tidak Hadir';
+      case StatusAbsen.izin:      return 'Izin';
+      case StatusAbsen.sakit:     return 'Sakit';
+      case StatusAbsen.alpha:     return 'Tidak Hadir';
     }
   }
 
   String get labelMetode {
     switch (metode) {
-      case MetodeValidasi.gps: return 'GPS';
-      case MetodeValidasi.wifi: return 'WiFi Kantor';
+      case MetodeValidasi.gps:    return 'GPS';
+      case MetodeValidasi.wifi:   return 'WiFi Kantor';
       case MetodeValidasi.manual: return 'Manual';
     }
   }
 
   @override
   List<Object?> get props => [id, pegawaiId, waktuMasuk];
-}
-
-// Model untuk rekap bulanan
-class RekapBulanan {
-  final String pegawaiId;
-  final String namaPegawai;
-  final int bulan;
-  final int tahun;
-  final int totalHadir;
-  final int totalTerlambat;
-  final int totalIzin;
-  final int totalSakit;
-  final int totalAlpha;
-  final int totalHariKerja;
-
-  const RekapBulanan({
-    required this.pegawaiId,
-    required this.namaPegawai,
-    required this.bulan,
-    required this.tahun,
-    required this.totalHadir,
-    required this.totalTerlambat,
-    required this.totalIzin,
-    required this.totalSakit,
-    required this.totalAlpha,
-    required this.totalHariKerja,
-  });
-
-  double get persentaseKehadiran =>
-      totalHariKerja == 0 ? 0 : (totalHadir + totalTerlambat) / totalHariKerja * 100;
 }

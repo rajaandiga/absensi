@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -15,18 +16,28 @@ class AuthProvider extends ChangeNotifier {
   String? _errorMessage;
   bool _sessionExpired = false;
 
+  // ── Idle timeout ──────────────────────────────────────────────────────────────
+  // Timer di-reset setiap ada aktivitas user. Jika 5 menit tidak ada tap → logout.
+  Timer? _idleTimer;
+
   AuthStatus get status => _status;
   Pegawai? get pegawai => _pegawai;
   String? get errorMessage => _errorMessage;
   bool get isAdmin => _pegawai?.isAdmin ?? false;
-
   bool get sessionExpired => _sessionExpired;
 
   void resetSessionExpired() {
     _sessionExpired = false;
   }
 
-  /// Cek apakah sudah login saat buka aplikasi, sekaligus daftarkan auto logout
+  /// Dipanggil dari Listener di main.dart setiap ada tap/gesture user.
+  /// Reset idle timer agar tidak logout selama user masih aktif.
+  void aktivitasUser() {
+    if (_status != AuthStatus.authenticated) return;
+    _resetIdleTimer();
+  }
+
+  /// Cek apakah sudah login saat buka aplikasi
   Future<void> cekStatusLogin() async {
     _status = AuthStatus.loading;
     notifyListeners();
@@ -41,6 +52,9 @@ class AuthProvider extends ChangeNotifier {
     final sudahLogin = await _api.sudahLogin();
     if (sudahLogin) {
       await _muatDataPegawai();
+      if (_status == AuthStatus.authenticated) {
+        _resetIdleTimer(); // Mulai idle timer setelah login terkonfirmasi
+      }
     } else {
       _status = AuthStatus.unauthenticated;
       notifyListeners();
@@ -67,6 +81,8 @@ class AuthProvider extends ChangeNotifier {
 
       _status = AuthStatus.authenticated;
       notifyListeners();
+
+      _resetIdleTimer(); // Mulai idle timer setelah login berhasil
     } catch (e) {
       _status = AuthStatus.error;
       _errorMessage = _parseError(e);
@@ -79,14 +95,29 @@ class AuthProvider extends ChangeNotifier {
     await _doLogout();
   }
 
-  /// Internal logout — (sesi expired)
+  /// Internal logout — dipanggil saat idle timeout atau server 401
   Future<void> _doLogout() async {
+    _idleTimer?.cancel();
+    _idleTimer = null;
+
     await _api.logout();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(AppConstants.keyUser);
     _pegawai = null;
     _status = AuthStatus.unauthenticated;
     notifyListeners();
+  }
+
+  /// Reset idle timer ke durasi penuh (AppConstants.idleTimeout).
+  /// Dipanggil setiap ada aktivitas user, dan saat login.
+  void _resetIdleTimer() {
+    _idleTimer?.cancel();
+    _idleTimer = Timer(AppConstants.idleTimeout, () {
+      if (_status == AuthStatus.authenticated) {
+        _sessionExpired = true;
+        _doLogout();
+      }
+    });
   }
 
   Future<void> _muatDataPegawai() async {
@@ -111,7 +142,7 @@ class AuthProvider extends ChangeNotifier {
       return 'Tidak dapat terhubung ke server. Periksa koneksi internet.';
     }
     if (msg.contains('401')) {
-      return 'password salah.';
+      return 'NIP atau password salah.';
     }
     if (msg.contains('DioException') || msg.contains('DioError')) {
       try {
@@ -124,5 +155,11 @@ class AuthProvider extends ChangeNotifier {
       return 'Error: $msg';
     }
     return 'Terjadi kesalahan: $msg';
+  }
+
+  @override
+  void dispose() {
+    _idleTimer?.cancel();
+    super.dispose();
   }
 }
