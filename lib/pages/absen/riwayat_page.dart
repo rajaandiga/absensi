@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../presentation/providers/auth_provider.dart';
-import '../../presentation/providers/absen_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/models/absensi_model.dart';
 import '../../data/services/api_service.dart';
@@ -15,18 +14,20 @@ class RiwayatPage extends StatefulWidget {
 }
 
 class _RiwayatPageState extends State<RiwayatPage> {
-  // Default: 1 bulan ke belakang dari hari ini
   late DateTime _tanggalMulai;
   late DateTime _tanggalSelesai;
   List<Absensi> _riwayat = [];
   bool _loading = false;
+
+  // Shortcut yang sedang aktif (untuk highlight chip)
+  String _activeShortcut = 'bulan';
 
   @override
   void initState() {
     super.initState();
     final now = DateTime.now();
     _tanggalSelesai = now;
-    _tanggalMulai = DateTime(now.year, now.month, 1); // awal bulan ini
+    _tanggalMulai = DateTime(now.year, now.month, 1);
     WidgetsBinding.instance.addPostFrameCallback((_) => _muat());
   }
 
@@ -51,6 +52,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
     setState(() => _loading = false);
   }
 
+  // FIX: Hapus locale — penyebab layar abu-abu
   Future<void> _pilihRentang() async {
     final picked = await showDateRangePicker(
       context: context,
@@ -60,7 +62,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
       ),
       firstDate: DateTime(2024),
       lastDate: DateTime.now(),
-      locale: const Locale('id', 'ID'),
+      // locale dihapus — menyebabkan layar abu-abu di Android
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: const ColorScheme.light(
@@ -76,15 +78,16 @@ class _RiwayatPageState extends State<RiwayatPage> {
       setState(() {
         _tanggalMulai = picked.start;
         _tanggalSelesai = picked.end;
+        _activeShortcut = 'custom'; // tidak ada shortcut aktif
       });
       _muat();
     }
   }
 
-  // Pilihan shortcut rentang
   void _setShortcut(String tipe) {
     final now = DateTime.now();
-    DateTime mulai, selesai = now;
+    DateTime mulai;
+    DateTime selesai = now;
     switch (tipe) {
       case 'minggu':
         mulai = now.subtract(const Duration(days: 6));
@@ -93,8 +96,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
         mulai = DateTime(now.year, now.month, 1);
         break;
       case 'bulan_lalu':
-        final bl = DateTime(now.year, now.month - 1, 1);
-        mulai = bl;
+        mulai = DateTime(now.year, now.month - 1, 1);
         selesai = DateTime(now.year, now.month, 0);
         break;
       default:
@@ -103,6 +105,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
     setState(() {
       _tanggalMulai = mulai;
       _tanggalSelesai = selesai;
+      _activeShortcut = tipe;
     });
     _muat();
   }
@@ -129,31 +132,28 @@ class _RiwayatPageState extends State<RiwayatPage> {
           fontSize: 18,
           fontWeight: FontWeight.w700,
         ),
+        // FIX: Tombol tanggal di AppBar sekarang bekerja (hapus GestureDetector,
+        // pakai TextButton agar area klik lebih luas & reliable)
         actions: [
-          GestureDetector(
-            onTap: _pilihRentang,
-            child: Container(
-              margin: const EdgeInsets.only(right: 16),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.date_range, size: 14, color: Colors.white),
-                  const SizedBox(width: 6),
-                  Text(
-                    _labelRentang,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                        fontSize: 12),
-                  ),
-                ],
-              ),
+          TextButton.icon(
+            onPressed: _pilihRentang,
+            icon: const Icon(Icons.date_range, size: 14, color: Colors.white),
+            label: Text(
+              _labelRentang,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                  fontSize: 12),
+            ),
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.white.withOpacity(0.15),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             ),
           ),
+          const SizedBox(width: 12),
         ],
       ),
       body: Column(
@@ -168,22 +168,26 @@ class _RiwayatPageState extends State<RiwayatPage> {
                 children: [
                   _ShortcutChip(
                     label: '7 Hari',
+                    aktif: _activeShortcut == 'minggu',
                     onTap: () => _setShortcut('minggu'),
                   ),
                   const SizedBox(width: 8),
                   _ShortcutChip(
                     label: 'Bulan Ini',
+                    aktif: _activeShortcut == 'bulan',
                     onTap: () => _setShortcut('bulan'),
                   ),
                   const SizedBox(width: 8),
                   _ShortcutChip(
                     label: 'Bulan Lalu',
+                    aktif: _activeShortcut == 'bulan_lalu',
                     onTap: () => _setShortcut('bulan_lalu'),
                   ),
                   const SizedBox(width: 8),
                   _ShortcutChip(
                     label: 'Pilih Rentang...',
                     icon: Icons.tune,
+                    aktif: _activeShortcut == 'custom',
                     onTap: _pilihRentang,
                   ),
                 ],
@@ -194,7 +198,8 @@ class _RiwayatPageState extends State<RiwayatPage> {
           Expanded(
             child: _loading
                 ? const Center(
-                child: CircularProgressIndicator(color: AppColors.primary))
+                child:
+                CircularProgressIndicator(color: AppColors.primary))
                 : _riwayat.isEmpty
                 ? _emptyState()
                 : _buildList(),
@@ -228,10 +233,8 @@ class _RiwayatPageState extends State<RiwayatPage> {
                 color: AppColors.textPrimary),
           ),
           const SizedBox(height: 4),
-          Text(
-            _labelRentang,
-            style: const TextStyle(color: AppColors.textHint),
-          ),
+          Text(_labelRentang,
+              style: const TextStyle(color: AppColors.textHint)),
         ],
       ),
     );
@@ -242,15 +245,13 @@ class _RiwayatPageState extends State<RiwayatPage> {
         _riwayat.where((a) => a.status == StatusAbsen.hadir).length;
     final terlambat =
         _riwayat.where((a) => a.status == StatusAbsen.terlambat).length;
-    final izin =
-        _riwayat.where((a) => a.status == StatusAbsen.izin).length;
+    final izin = _riwayat.where((a) => a.status == StatusAbsen.izin).length;
     final sakit =
         _riwayat.where((a) => a.status == StatusAbsen.sakit).length;
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // Rekap kartu
         Container(
           decoration: BoxDecoration(
             color: AppColors.cardDark,
@@ -300,38 +301,51 @@ class _RiwayatPageState extends State<RiwayatPage> {
   }
 }
 
-// ── Shortcut Chip ─────────────────────────────────────────────────────────────
+// ── Shortcut Chip — sekarang ada state aktif ──────────────────────────────────
 class _ShortcutChip extends StatelessWidget {
   final String label;
   final IconData? icon;
+  final bool aktif;
   final VoidCallback onTap;
 
-  const _ShortcutChip({required this.label, this.icon, required this.onTap});
+  const _ShortcutChip({
+    required this.label,
+    this.icon,
+    required this.aktif,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.12),
+          color: aktif ? Colors.white : Colors.white.withOpacity(0.12),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withOpacity(0.2)),
+          border: Border.all(
+              color: aktif
+                  ? Colors.white
+                  : Colors.white.withOpacity(0.2)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 12, color: Colors.white70),
+              Icon(icon,
+                  size: 12,
+                  color: aktif ? AppColors.primary : Colors.white70),
               const SizedBox(width: 4),
             ],
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 12,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w500),
+                  color: aktif ? AppColors.primary : Colors.white,
+                  fontWeight:
+                  aktif ? FontWeight.w700 : FontWeight.w500),
             ),
           ],
         ),
@@ -360,16 +374,15 @@ class _RekapChip extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Text(
-              '$nilai',
-              style: TextStyle(
-                  fontSize: 22, fontWeight: FontWeight.w800, color: warna),
-            ),
-            Text(
-              label,
-              style: const TextStyle(
-                  fontSize: 10, color: AppColors.textOnDarkSecondary),
-            ),
+            Text('$nilai',
+                style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: warna)),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 10,
+                    color: AppColors.textOnDarkSecondary)),
           ],
         ),
       ),
@@ -384,16 +397,11 @@ class _ItemRiwayat extends StatelessWidget {
 
   Color get _warnaStatus {
     switch (absensi.status) {
-      case StatusAbsen.hadir:
-        return AppColors.success;
-      case StatusAbsen.terlambat:
-        return AppColors.warning;
-      case StatusAbsen.izin:
-        return const Color(0xFF3B82F6);
-      case StatusAbsen.sakit:
-        return AppColors.primaryLight;
-      case StatusAbsen.alpha:
-        return AppColors.error;
+      case StatusAbsen.hadir:     return AppColors.success;
+      case StatusAbsen.terlambat: return AppColors.warning;
+      case StatusAbsen.izin:      return const Color(0xFF3B82F6);
+      case StatusAbsen.sakit:     return AppColors.primaryLight;
+      case StatusAbsen.alpha:     return AppColors.error;
     }
   }
 
@@ -471,7 +479,8 @@ class _ItemRiwayat extends StatelessWidget {
                     if (absensi.waktuPulang != null) ...[
                       const SizedBox(width: 10),
                       const Icon(Icons.logout_rounded,
-                          size: 12, color: AppColors.textSecondary),
+                          size: 12,
+                          color: AppColors.textSecondary),
                       const SizedBox(width: 4),
                       Text(
                         fmt.format(absensi.waktuPulang!),
@@ -495,12 +504,13 @@ class _ItemRiwayat extends StatelessWidget {
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            padding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
               color: _warnaStatus.withOpacity(0.1),
               borderRadius: BorderRadius.circular(20),
-              border:
-              Border.all(color: _warnaStatus.withOpacity(0.3), width: 1),
+              border: Border.all(
+                  color: _warnaStatus.withOpacity(0.3), width: 1),
             ),
             child: Text(
               absensi.labelStatus,

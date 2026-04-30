@@ -231,6 +231,22 @@ class ApiService {
     await _dio.post('/admin/jadwal-wfh', data: {'jadwal': jadwal});
   }
 
+  // ── Admin: WFH per pegawai ─────────────────────────────────────────────────
+
+  Future<List<dynamic>> getWfhPegawai() async {
+    final response = await _dio.get('/admin/wfh-pegawai');
+    return response.data as List<dynamic>;
+  }
+
+  Future<Map<String, dynamic>> tambahWfhPegawai(Map<String, dynamic> data) async {
+    final response = await _dio.post('/admin/wfh-pegawai', data: data);
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<void> hapusWfhPegawai(String id) async {
+    await _dio.delete('/admin/wfh-pegawai/$id');
+  }
+
   // ── Token ──────────────────────────────────────────────────────────────────
 
   Future<void> simpanToken(String token) async {

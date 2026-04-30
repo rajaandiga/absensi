@@ -16,7 +16,6 @@ class _KelolaIzinPageState extends State<KelolaIzinPage>
   final _api = ApiService();
   late TabController _tab;
 
-  // FIX: Pisahkan list pending dan list semua izin
   List<IzinModel> _pending = [];
   List<IzinModel> _semuaIzin = [];
   bool _loading = true;
@@ -26,7 +25,6 @@ class _KelolaIzinPageState extends State<KelolaIzinPage>
     super.initState();
     _tab = TabController(length: 2, vsync: this);
     _tab.addListener(() {
-      // Refresh data saat pindah tab
       if (!_tab.indexIsChanging) _muat();
     });
     _muat();
@@ -41,12 +39,10 @@ class _KelolaIzinPageState extends State<KelolaIzinPage>
   Future<void> _muat() async {
     setState(() => _loading = true);
     try {
-      // FIX: Ambil data pending dan semua izin secara paralel
       final results = await Future.wait([
         _api.getIzinPending(),
-        _api.getSemuaIzin(), // endpoint baru untuk semua izin
+        _api.getSemuaIzin(),
       ]);
-
       _pending = results[0]
           .map((e) => IzinModel.fromJson(e as Map<String, dynamic>))
           .toList();
@@ -54,7 +50,6 @@ class _KelolaIzinPageState extends State<KelolaIzinPage>
           .map((e) => IzinModel.fromJson(e as Map<String, dynamic>))
           .toList();
     } catch (_) {
-      // Jika getSemuaIzin belum tersedia di backend, fallback pakai pending saja
       try {
         final data = await _api.getIzinPending();
         _pending = data
@@ -72,18 +67,11 @@ class _KelolaIzinPageState extends State<KelolaIzinPage>
   Future<void> _setujui(IzinModel izin, String statusBaru) async {
     try {
       await _api.setujuiIzin(izin.id, statusBaru);
-
-      // FIX: Update state lokal langsung tanpa reload penuh
-      // Ini membuat perubahan terlihat secara instan
       setState(() {
-        // Hapus dari pending
         _pending.removeWhere((i) => i.id == izin.id);
-
-        // Update status di semua izin
         final idx = _semuaIzin.indexWhere((i) => i.id == izin.id);
         if (idx != -1) {
-          // Buat objek baru dengan status yang diperbarui
-          final updated = IzinModel(
+          _semuaIzin[idx] = IzinModel(
             id: izin.id,
             pegawaiId: izin.pegawaiId,
             namaPegawai: izin.namaPegawai,
@@ -97,44 +85,38 @@ class _KelolaIzinPageState extends State<KelolaIzinPage>
             lampiranUrl: izin.lampiranUrl,
             diajukanPada: izin.diajukanPada,
           );
-          _semuaIzin[idx] = updated;
         }
       });
-
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(statusBaru == 'disetujui'
-                ? 'Izin ${izin.namaPegawai} disetujui ✓'
-                : 'Izin ${izin.namaPegawai} ditolak'),
-            backgroundColor: statusBaru == 'disetujui'
-                ? AppColors.success
-                : AppColors.error,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(statusBaru == 'disetujui'
+              ? 'Izin ${izin.namaPegawai} disetujui ✓'
+              : 'Izin ${izin.namaPegawai} ditolak'),
+          backgroundColor:
+          statusBaru == 'disetujui' ? AppColors.success : AppColors.error,
+        ));
       }
-
-      // Refresh data dari server di background
       _muat();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('Gagal: $e'),
-              backgroundColor: AppColors.error),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Gagal: $e'), backgroundColor: AppColors.error));
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // FIX: AppBar pakai warna primary agar label tab terbaca
     return Scaffold(
       appBar: AppBar(
         title: const Text('Kelola Izin & Sakit'),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         bottom: TabBar(
           controller: _tab,
           indicatorColor: Colors.white,
+          // FIX: warna teks tab eksplisit putih agar terbaca di background primary
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
           tabs: [
@@ -199,7 +181,6 @@ class _KelolaIzinPageState extends State<KelolaIzinPage>
           : TabBarView(
         controller: _tab,
         children: [
-          // Tab Menunggu — hanya pending, dengan tombol aksi
           _ListIzin(
             data: _pending,
             emptyMsg: 'Tidak ada pengajuan yang menunggu',
@@ -208,7 +189,6 @@ class _KelolaIzinPageState extends State<KelolaIzinPage>
             onTolak: (izin) => _setujui(izin, 'ditolak'),
             onRefresh: _muat,
           ),
-          // FIX: Tab Semua — pakai _semuaIzin bukan _pending
           _ListIzin(
             data: _semuaIzin,
             emptyMsg: 'Tidak ada data izin',
@@ -256,7 +236,6 @@ class _ListIzin extends StatelessWidget {
         ),
       );
     }
-
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: ListView.separated(
@@ -289,12 +268,9 @@ class _IzinAdminItem extends StatelessWidget {
 
   Color get _warnaStatus {
     switch (izin.status) {
-      case StatusIzin.pending:
-        return AppColors.warning;
-      case StatusIzin.disetujui:
-        return AppColors.success;
-      case StatusIzin.ditolak:
-        return AppColors.error;
+      case StatusIzin.pending:    return AppColors.warning;
+      case StatusIzin.disetujui:  return AppColors.success;
+      case StatusIzin.ditolak:    return AppColors.error;
     }
   }
 
@@ -363,14 +339,11 @@ class _IzinAdminItem extends StatelessWidget {
                   color: AppColors.background,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(
-                  izin.keterangan,
-                  style: const TextStyle(
-                      fontSize: 12, color: AppColors.textSecondary),
-                ),
+                child: Text(izin.keterangan,
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.textSecondary)),
               ),
             ],
-            // FIX: tombol aksi hanya muncul jika showAksi true DAN status masih pending
             if (showAksi && izin.status == StatusIzin.pending) ...[
               const SizedBox(height: 12),
               Row(

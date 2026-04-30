@@ -83,18 +83,13 @@ class _BerandaAdminState extends State<_BerandaAdmin> {
   bool _loading = true;
   bool _exporting = false;
 
-  // Rentang tanggal export — default bulan ini
   late DateTime _exportMulai;
   late DateTime _exportSelesai;
 
-  // Filter tampilan hari ini
   String _cariNama = '';
   StatusAbsen? _filterStatus;
 
-  // Filter export: semua pegawai atau pegawai tertentu
-  Pegawai? _pegawaiFilter; // null = semua
-
-  // Jenis export
+  Pegawai? _pegawaiFilter;
   _JenisExport _jenisExport = _JenisExport.rekapExcel;
 
   @override
@@ -213,13 +208,15 @@ class _BerandaAdminState extends State<_BerandaAdmin> {
     );
   }
 
+  // FIX LAYAR ABU-ABU: hapus parameter locale dari showDateRangePicker
+  // locale menyebabkan layar abu-abu jika flutter_localizations belum
+  // dikonfigurasi di MaterialApp. Gunakan format manual saja.
   Future<void> _pilihRentangExport() async {
     final picked = await showDateRangePicker(
       context: context,
       initialDateRange: DateTimeRange(start: _exportMulai, end: _exportSelesai),
       firstDate: DateTime(2024),
       lastDate: DateTime.now(),
-      locale: const Locale('id', 'ID'),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: const ColorScheme.light(
@@ -244,16 +241,13 @@ class _BerandaAdminState extends State<_BerandaAdmin> {
       case _JenisExport.rekapExcel:
         await _exportRekapExcel();
         break;
-      case _JenisExport.rekapCsv:
-        await _exportRekapCsv();
-        break;
       case _JenisExport.detailExcel:
         await _exportDetailExcel();
         break;
     }
   }
 
-  // ── Export 1: Rekap Ringkasan Excel ──────────────────────────────────────────
+  // ── Export 1: Rekap Excel — tanpa kolom total hari & persentase ─────────────
   Future<void> _exportRekapExcel() async {
     setState(() => _exporting = true);
     try {
@@ -262,7 +256,6 @@ class _BerandaAdminState extends State<_BerandaAdmin> {
         tanggalSelesai: _exportSelesai,
       );
 
-      // Filter per pegawai jika dipilih
       final filtered = _pegawaiFilter == null
           ? data
           : data.where((row) => row['pegawai_id'] == _pegawaiFilter!.id).toList();
@@ -275,37 +268,33 @@ class _BerandaAdminState extends State<_BerandaAdmin> {
       final labelRentang = '${fmtTgl.format(_exportMulai)} – ${fmtTgl.format(_exportSelesai)}';
       final labelPegawai = _pegawaiFilter != null ? ' — ${_pegawaiFilter!.nama}' : '';
 
-      // Hitung hari kerja
-      int hariKerja = 0;
-      DateTime tgl = _exportMulai;
-      while (!tgl.isAfter(_exportSelesai)) {
-        if (tgl.weekday >= 1 && tgl.weekday <= 5) hariKerja++;
-        tgl = tgl.add(const Duration(days: 1));
-      }
-
       _setCell(sheet, 0, 0, 'Rekap Absensi: $labelRentang$labelPegawai',
           bold: true, color: '#7F77DD', fontSize: 13);
-      _setCell(sheet, 0, 1, 'Hari Kerja dalam rentang: $hariKerja hari',
-          italic: true, color: '#6B7280');
 
-      final headers = ['No', 'Nama', 'NIP', 'Unit Kerja', 'Hadir', 'Terlambat',
-        'Izin', 'Sakit', 'Tidak Hadir', 'Total Hari Kerja', '% Kehadiran'];
+      // Kolom bersih — hapus "Total Hari Kerja" dan "% Kehadiran"
+      final headers = ['No', 'Nama', 'NIP', 'Unit Kerja',
+        'Hadir', 'Terlambat', 'Izin', 'Sakit', 'Tidak Hadir'];
       for (var i = 0; i < headers.length; i++) {
-        _setCell(sheet, i, 2, headers[i],
+        _setCell(sheet, i, 1, headers[i],
             bold: true, bgColor: '#7F77DD', color: '#FFFFFF');
       }
 
       for (var i = 0; i < filtered.length; i++) {
         final row = filtered[i] as Map<String, dynamic>;
         final nilai = [
-          i + 1, row['nama'] ?? '', row['nip'] ?? '', row['unit_kerja'] ?? '',
-          row['total_hadir'] ?? 0, row['total_terlambat'] ?? 0,
-          row['total_izin'] ?? 0, row['total_sakit'] ?? 0,
-          row['total_alpha'] ?? 0, row['total_hari_kerja'] ?? hariKerja,
-          '${(row['persentase'] as num?)?.toStringAsFixed(1) ?? '0'}%',
+          i + 1,
+          row['nama'] ?? '',
+          row['nip'] ?? '',
+          row['unit_kerja'] ?? '',
+          row['total_hadir'] ?? 0,
+          row['total_terlambat'] ?? 0,
+          row['total_izin'] ?? 0,
+          row['total_sakit'] ?? 0,
+          row['total_alpha'] ?? 0,
         ];
         for (var j = 0; j < nilai.length; j++) {
-          final cell = sheet.cell(excel.CellIndex.indexByColumnRow(columnIndex: j, rowIndex: i + 3));
+          final cell = sheet.cell(
+              excel.CellIndex.indexByColumnRow(columnIndex: j, rowIndex: i + 2));
           final v = nilai[j];
           cell.value = v is int ? excel.IntCellValue(v) : excel.TextCellValue(v.toString());
         }
@@ -318,65 +307,26 @@ class _BerandaAdminState extends State<_BerandaAdmin> {
     setState(() => _exporting = false);
   }
 
-  // ── Export 2: Rekap CSV ───────────────────────────────────────────────────────
-  Future<void> _exportRekapCsv() async {
-    setState(() => _exporting = true);
-    try {
-      final data = await _api.getRekapRentang(
-        tanggalMulai: _exportMulai,
-        tanggalSelesai: _exportSelesai,
-      );
-
-      final filtered = _pegawaiFilter == null
-          ? data
-          : data.where((row) => row['pegawai_id'] == _pegawaiFilter!.id).toList();
-
-      final buffer = StringBuffer();
-      buffer.writeln('No,Nama,NIP,Unit Kerja,Hadir,Terlambat,Izin,Sakit,Tidak Hadir,Total Hari Kerja,% Kehadiran');
-
-      for (var i = 0; i < filtered.length; i++) {
-        final row = filtered[i] as Map<String, dynamic>;
-        final persen = (row['persentase'] as num?)?.toStringAsFixed(1) ?? '0';
-        buffer.writeln([
-          i + 1,
-          '"${row['nama'] ?? ''}"',
-          row['nip'] ?? '',
-          '"${row['unit_kerja'] ?? ''}"',
-          row['total_hadir'] ?? 0,
-          row['total_terlambat'] ?? 0,
-          row['total_izin'] ?? 0,
-          row['total_sakit'] ?? 0,
-          row['total_alpha'] ?? 0,
-          row['total_hari_kerja'] ?? 0,
-          '$persen%',
-        ].join(','));
-      }
-
-      final dir = await getApplicationDocumentsDirectory();
-      final fmtFile = DateFormat('yyyyMMdd');
-      final namaFile = 'Rekap_${fmtFile.format(_exportMulai)}_${fmtFile.format(_exportSelesai)}.csv';
-      final filePath = '${dir.path}/$namaFile';
-      await File(filePath).writeAsString(buffer.toString());
-
-      final fmtTgl = DateFormat('d MMM yyyy', 'id_ID');
-      final labelRentang = '${fmtTgl.format(_exportMulai)} – ${fmtTgl.format(_exportSelesai)}';
-      await Share.shareXFiles([XFile(filePath)],
-          subject: 'Rekap Absensi BPS Jambi — $labelRentang');
-    } catch (e) {
-      _tampilError('Gagal export CSV: $e');
-    }
-    setState(() => _exporting = false);
-  }
-
-  // ── Export 3: Detail Harian Excel ─────────────────────────────────────────────
+  // ── Export 2: Detail Harian Excel ─────────────────────────────────────────────
+  // FIX 404: Jika endpoint backend belum ada, tampilkan pesan yang jelas
   Future<void> _exportDetailExcel() async {
     setState(() => _exporting = true);
     try {
-      final data = await _api.getDetailAbsensiRentang(
-        tanggalMulai: _exportMulai,
-        tanggalSelesai: _exportSelesai,
-        pegawaiId: _pegawaiFilter?.id,
-      );
+      List<dynamic> data;
+      try {
+        data = await _api.getDetailAbsensiRentang(
+          tanggalMulai: _exportMulai,
+          tanggalSelesai: _exportSelesai,
+          pegawaiId: _pegawaiFilter?.id,
+        );
+      } catch (e) {
+        _tampilError(
+          'Endpoint /admin/absensi/detail belum ada di backend.\n'
+              'Tambahkan route tersebut di server terlebih dahulu.',
+        );
+        setState(() => _exporting = false);
+        return;
+      }
 
       final workbook = excel.Excel.createExcel();
       final sheet = workbook['Detail Absensi Harian'];
@@ -419,7 +369,8 @@ class _BerandaAdminState extends State<_BerandaAdmin> {
           row['metode'] ?? '', row['status'] ?? '', row['keterangan'] ?? '',
         ];
         for (var j = 0; j < nilai.length; j++) {
-          final cell = sheet.cell(excel.CellIndex.indexByColumnRow(columnIndex: j, rowIndex: i + 2));
+          final cell = sheet.cell(
+              excel.CellIndex.indexByColumnRow(columnIndex: j, rowIndex: i + 2));
           final v = nilai[j];
           cell.value = v is int ? excel.IntCellValue(v) : excel.TextCellValue(v.toString());
         }
@@ -445,7 +396,6 @@ class _BerandaAdminState extends State<_BerandaAdmin> {
       }) {
     final cell = sheet.cell(excel.CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
     cell.value = excel.TextCellValue(value);
-    // Ikuti pola kode asli yang sudah berjalan: fromHexString langsung tanpa null check
     cell.cellStyle = excel.CellStyle(
       bold: bold,
       italic: italic,
@@ -460,10 +410,7 @@ class _BerandaAdminState extends State<_BerandaAdmin> {
   }
 
   Future<void> _simpanDanBagikan(
-      excel.Excel workbook,
-      String prefix,
-      String labelRentang,
-      ) async {
+      excel.Excel workbook, String prefix, String labelRentang) async {
     final dir = await getApplicationDocumentsDirectory();
     final fmtFile = DateFormat('yyyyMMdd');
     final namaFile =
@@ -484,12 +431,14 @@ class _BerandaAdminState extends State<_BerandaAdmin> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(msg),
         backgroundColor: AppColors.error,
+        duration: const Duration(seconds: 5),
       ));
     }
   }
 }
 
-enum _JenisExport { rekapExcel, rekapCsv, detailExcel }
+// Hanya 2 jenis — CSV dihapus
+enum _JenisExport { rekapExcel, detailExcel }
 
 // ── Kartu statistik ────────────────────────────────────────────────────────────
 class _KartuStatistik extends StatelessWidget {
@@ -512,9 +461,7 @@ class _KartuStatistik extends StatelessWidget {
           children: [
             Text(
               'Hari ini — ${DateFormat('d MMMM yyyy', 'id_ID').format(DateTime.now())}',
-              style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500,
                   color: AppColors.textSecondary),
             ),
             const SizedBox(height: 12),
@@ -567,7 +514,7 @@ class _StatBox extends StatelessWidget {
   }
 }
 
-// ── Kartu Export Excel — versi lengkap ────────────────────────────────────────
+// ── Kartu Export ───────────────────────────────────────────────────────────────
 class _KartuExport extends StatelessWidget {
   final DateTime tanggalMulai;
   final DateTime tanggalSelesai;
@@ -602,22 +549,6 @@ class _KartuExport extends StatelessWidget {
     return '${fmtThn.format(tanggalMulai)} – ${fmtThn.format(tanggalSelesai)}';
   }
 
-  String get _labelJenis {
-    switch (jenisExport) {
-      case _JenisExport.rekapExcel:  return 'Rekap ringkasan (.xlsx)';
-      case _JenisExport.rekapCsv:    return 'Rekap ringkasan (.csv)';
-      case _JenisExport.detailExcel: return 'Detail absensi harian (.xlsx)';
-    }
-  }
-
-  IconData get _ikonJenis {
-    switch (jenisExport) {
-      case _JenisExport.rekapExcel:  return Icons.table_chart_outlined;
-      case _JenisExport.rekapCsv:    return Icons.description_outlined;
-      case _JenisExport.detailExcel: return Icons.list_alt_outlined;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -627,13 +558,11 @@ class _KartuExport extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Export Absensi',
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
                     color: AppColors.textSecondary)),
             const SizedBox(height: 12),
 
-            // ── Rentang tanggal ──────────────────────────────────────────────
+            // Rentang tanggal
             const Text('Rentang tanggal',
                 style: TextStyle(fontSize: 11, color: AppColors.textHint)),
             const SizedBox(height: 4),
@@ -641,16 +570,17 @@ class _KartuExport extends StatelessWidget {
               onPressed: onPilihRentang,
               icon: const Icon(Icons.date_range, size: 16),
               label: Text(_labelRentang),
-              style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 44)),
+              style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 44)),
             ),
             const SizedBox(height: 12),
 
-            // ── Filter pegawai ───────────────────────────────────────────────
+            // Filter pegawai
             const Text('Filter pegawai',
                 style: TextStyle(fontSize: 11, color: AppColors.textHint)),
             const SizedBox(height: 4),
             DropdownButtonFormField<Pegawai?>(
-              initialValue: pegawaiFilter,
+              value: pegawaiFilter,
               decoration: const InputDecoration(
                 hintText: 'Semua pegawai',
                 prefixIcon: Icon(Icons.person_search_outlined, size: 18),
@@ -659,9 +589,7 @@ class _KartuExport extends StatelessWidget {
               ),
               items: [
                 const DropdownMenuItem<Pegawai?>(
-                  value: null,
-                  child: Text('Semua pegawai'),
-                ),
+                    value: null, child: Text('Semua pegawai')),
                 ...semuaPegawai.map((p) => DropdownMenuItem<Pegawai?>(
                   value: p,
                   child: Text(p.nama, overflow: TextOverflow.ellipsis),
@@ -671,29 +599,24 @@ class _KartuExport extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // ── Jenis export ─────────────────────────────────────────────────
+            // Jenis export
             const Text('Format export',
                 style: TextStyle(fontSize: 11, color: AppColors.textHint)),
             const SizedBox(height: 4),
-            _JenisExportPicker(
-              selected: jenisExport,
-              onChanged: onPilihJenis,
-            ),
+            _JenisExportPicker(selected: jenisExport, onChanged: onPilihJenis),
             const SizedBox(height: 12),
 
-            // ── Tombol export ────────────────────────────────────────────────
+            // Tombol export
             ElevatedButton.icon(
               onPressed: exporting ? null : onExport,
               icon: exporting
                   ? const SizedBox(
-                  width: 14,
-                  height: 14,
+                  width: 14, height: 14,
                   child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : Icon(_ikonJenis, size: 16),
-              label: Text(exporting ? 'Mengexport...' : 'Export $_labelJenis'),
+                  : const Icon(Icons.file_download_outlined, size: 16),
+              label: Text(exporting ? 'Mengexport...' : 'Export Excel'),
               style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 44),
-              ),
+                  minimumSize: const Size(double.infinity, 44)),
             ),
           ],
         ),
@@ -705,15 +628,13 @@ class _KartuExport extends StatelessWidget {
 class _JenisExportPicker extends StatelessWidget {
   final _JenisExport selected;
   final ValueChanged<_JenisExport> onChanged;
-
   const _JenisExportPicker({required this.selected, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
     final opsi = [
-      (value: _JenisExport.rekapExcel,  label: 'Rekap .xlsx', icon: Icons.table_chart_outlined),
-      (value: _JenisExport.rekapCsv,    label: 'Rekap .csv',  icon: Icons.description_outlined),
-      (value: _JenisExport.detailExcel, label: 'Detail .xlsx', icon: Icons.list_alt_outlined),
+      (value: _JenisExport.rekapExcel, label: 'Rekap\nRingkasan', icon: Icons.table_chart_outlined),
+      (value: _JenisExport.detailExcel, label: 'Detail\nHarian', icon: Icons.list_alt_outlined),
     ];
     return Row(
       children: opsi.map((o) {
@@ -723,7 +644,7 @@ class _JenisExportPicker extends StatelessWidget {
             onTap: () => onChanged(o.value),
             child: Container(
               margin: const EdgeInsets.only(right: 6),
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(vertical: 10),
               decoration: BoxDecoration(
                 color: aktif ? AppColors.primarySurface : AppColors.background,
                 borderRadius: BorderRadius.circular(8),
@@ -734,13 +655,12 @@ class _JenisExportPicker extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  Icon(o.icon,
-                      size: 18,
+                  Icon(o.icon, size: 20,
                       color: aktif ? AppColors.primary : AppColors.textSecondary),
                   const SizedBox(height: 4),
                   Text(o.label,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: aktif ? FontWeight.w600 : FontWeight.normal,
                         color: aktif ? AppColors.primary : AppColors.textSecondary,
                       ),
@@ -780,9 +700,7 @@ class _DaftarAbsensiHariIni extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Daftar absensi hari ini',
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500,
                     color: AppColors.textSecondary)),
             const SizedBox(height: 12),
             TextField(
@@ -893,12 +811,8 @@ class _AbsensiItem extends StatelessWidget {
             radius: 18,
             backgroundColor: AppColors.primarySurface,
             child: Text(
-              absensi.namaPegawai.isNotEmpty
-                  ? absensi.namaPegawai[0].toUpperCase()
-                  : '?',
-              style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+              absensi.namaPegawai.isNotEmpty ? absensi.namaPegawai[0].toUpperCase() : '?',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500,
                   color: AppColors.primary),
             ),
           ),
@@ -926,9 +840,7 @@ class _AbsensiItem extends StatelessWidget {
               border: Border.all(color: _warnaStatus.withOpacity(0.3), width: 0.5),
             ),
             child: Text(absensi.labelStatus,
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500,
                     color: _warnaStatus)),
           ),
         ],
